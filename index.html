@@ -12,19 +12,21 @@
 
     <!-- PDF.js from CDN -->
     <script type="module">
-      try {
-        const pdfjsModule = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.mjs');
-        const { getDocument, GlobalWorkerOptions } = pdfjsModule;
-        
-        GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.mjs';
-        
-        window.pdfjsLib = { getDocument };
-        console.log('PDF.js loaded and configured successfully from jsDelivr.');
-      } catch (error) {
-        console.error('Failed to load PDF.js from jsDelivr:', error);
-        // This alert can be removed in production
-        alert('PDF.js 库加载失败，请检查网络连接或刷新页面重试。');
-      }
+      (async () => {
+        try {
+          const pdfjsModule = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.mjs');
+          const { getDocument, GlobalWorkerOptions } = pdfjsModule;
+          
+          GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.mjs';
+          
+          window.pdfjsLib = { getDocument };
+          console.log('PDF.js loaded and configured successfully from jsDelivr.');
+        } catch (error) {
+          console.error('Failed to load PDF.js from jsDelivr:', error);
+          // This alert can be removed in production
+          alert('PDF.js 库加载失败，请检查网络连接或刷新页面重试。');
+        }
+      })();
     </script>
   </head>
   <body>
