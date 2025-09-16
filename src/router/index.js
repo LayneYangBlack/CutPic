@@ -3,6 +3,7 @@ import CutPic from '../views/CutPic.vue'
 import Inpaint from '../views/Inpaint.vue'
 import Home from '../views/Home.vue'
 import BadgeLayout from '../views/BadgeLayout.vue'
+import PdfComposer from '../views/PdfComposer.vue'
 
 const routes = [
   {
@@ -24,6 +25,11 @@ const routes = [
     path: '/badge',
     name: 'BadgeLayout',
     component: BadgeLayout
+  },
+  {
+    path: '/pdf-composer',
+    name: 'PdfComposer',
+    component: PdfComposer
   }
 ]
 

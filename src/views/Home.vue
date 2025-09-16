@@ -1,7 +1,7 @@
 <template>
   <div class="container mx-auto p-8">
     <h1 class="text-3xl font-bold text-center mb-12">选择一个工具</h1>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
       <!-- 图片裁剪工具 -->
       <router-link to="/cutpic" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
         <svg class="w-16 h-16 mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.629,18.629,18.629,7.629,16.371,5.371,5.371,16.371ZM5,16V19H8M19,8V5H16"></path></svg>
@@ -21,6 +21,13 @@
         <svg class="w-16 h-16 mb-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         <h2 class="text-xl font-semibold">徽章排版</h2>
         <p class="text-gray-500 dark:text-gray-400 mt-2">将圆形图片排列到A4纸上</p>
+      </router-link>
+
+      <!-- PDF合成工具 -->
+      <router-link to="/pdf-composer" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <h2 class="text-xl font-semibold">PDF 合成</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">将条码PDF合并到模板PDF中</p>
       </router-link>
     </div>
   </div>
