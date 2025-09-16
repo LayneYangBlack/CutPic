@@ -18,9 +18,26 @@ const aspectRatio = computed(() => {
 
 // 处理图片加载
 const handleImageLoaded = (file) => {
-  currentImage.value = file
-  imagePreview.value = URL.createObjectURL(file)
-}
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      // Sanitize the image by drawing it to a canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const sanitizedDataUrl = canvas.toDataURL('image/png');
+      
+      // Now use the sanitized URL
+      imagePreview.value = sanitizedDataUrl;
+      currentImage.value = true; // Mark as image loaded
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
 
 // 处理裁剪
 const handleCrop = (data) => {

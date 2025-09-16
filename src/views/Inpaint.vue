@@ -70,35 +70,47 @@ const handleImageUpload = (e) => {
 
   const reader = new FileReader();
   reader.onload = (event) => {
-    originalImage = new Image();
-    originalImage.onload = () => {
-      // 限制最大尺寸
-      const MAX_WIDTH = 800;
-      const MAX_HEIGHT = 800;
-      let w = originalImage.width;
-      let h = originalImage.height;
+    const img = new Image();
+    img.onload = () => {
+      // Sanitize the image by drawing it to a canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const sanitizedDataUrl = canvas.toDataURL('image/png');
 
-      if (w > MAX_WIDTH) {
-        h = (h * MAX_WIDTH) / w;
-        w = MAX_WIDTH;
-      }
-      if (h > MAX_HEIGHT) {
-        w = (w * MAX_HEIGHT) / h;
-        h = MAX_HEIGHT;
-      }
+      originalImage = new Image();
+      originalImage.onload = () => {
+          // 限制最大尺寸
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let w = originalImage.width;
+          let h = originalImage.height;
 
-      canvasWidth.value = Math.round(w);
-      canvasHeight.value = Math.round(h);
-      
-      currentImage = originalImage; // Store the initial image
-      imageLoaded.value = true;
+          if (w > MAX_WIDTH) {
+            h = (h * MAX_WIDTH) / w;
+            w = MAX_WIDTH;
+          }
+          if (h > MAX_HEIGHT) {
+            w = (w * MAX_HEIGHT) / h;
+            h = MAX_HEIGHT;
+          }
 
-      // 必须在下一个 tick 中更新 canvas，等待 DOM 更新
-      nextTick(() => {
-        setupCanvases();
-      });
+          canvasWidth.value = Math.round(w);
+          canvasHeight.value = Math.round(h);
+          
+          currentImage = originalImage; // Store the initial image
+          imageLoaded.value = true;
+
+          // 必须在下一个 tick 中更新 canvas，等待 DOM 更新
+          nextTick(() => {
+            setupCanvases();
+          });
+      };
+      originalImage.src = sanitizedDataUrl;
     };
-    originalImage.src = event.target.result;
+    img.src = event.target.result;
   };
   reader.readAsDataURL(file);
 };

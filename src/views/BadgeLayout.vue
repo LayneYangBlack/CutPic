@@ -78,8 +78,20 @@ const handleImageUpload = (event) => {
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      imageSrc.value = e.target.result;
-      croppedImageSrc.value = null; // Reset previous crop
+      const img = new Image();
+      img.onload = () => {
+        // Sanitize the image by drawing it to a canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        
+        // Use the sanitized PNG data URL
+        imageSrc.value = canvas.toDataURL('image/png');
+        croppedImageSrc.value = null; // Reset previous crop
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   }
