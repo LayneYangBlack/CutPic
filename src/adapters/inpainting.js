@@ -1,4 +1,3 @@
-
 import cv from 'opencv-ts';
 
 // Simple helper to load an image from a URL
@@ -102,8 +101,13 @@ function imageDataToDataURL(imageData) {
 let session = null;
 
 export default async function inpaint(imageFile, maskBase64) {
+  const ort = window.ort;
+  if (!ort) {
+    throw new Error("ONNX Runtime is not available. Please check the script tag in index.html.");
+  }
+
   if (!session) {
-    ort.env.wasm.wasmPaths = '/';
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
     session = await ort.InferenceSession.create('./inpaint.onnx', {
       executionProviders: ['wasm'],
     });

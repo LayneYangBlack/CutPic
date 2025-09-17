@@ -31,8 +31,8 @@
 
     <!-- Step 3: Upload Barcode -->
     <div v-if="selectionRect.width" class="p-4 border rounded-lg bg-white shadow-sm">
-        <h2 class="text-lg font-semibold mb-2">3. 上传条码 PDF</h2>
-        <input type="file" @change="handleBarcodeUpload" accept=".pdf" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        <h2 class="text-lg font-semibold mb-2">3. 上传条码文件 (PDF 或图片)</h2>
+        <input type="file" @change="handleBarcodeUpload" accept=".pdf,image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
     </div>
 
     <!-- Step 4: Compose and Download -->
@@ -153,26 +153,49 @@ const handleBarcodeUpload = async (event) => {
     if (!file) return;
     barcodeFilename.value = file.name;
 
-    try {
-        const pdfjsLib = await window.pdfjsLibPromise;
-        if (!pdfjsLib) { alert('PDF.js 库尚未加载完成'); return; }
+    // Handle PDF files
+    if (file.type === 'application/pdf') {
+        try {
+            const pdfjsLib = await window.pdfjsLibPromise;
+            if (!pdfjsLib) { alert('PDF.js 库尚未加载完成'); return; }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 2.0 });
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 2.0 });
 
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.height = viewport.height;
-        tempCanvas.width = viewport.width;
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.height = viewport.height;
+            tempCanvas.width = viewport.width;
 
-        await page.render({ canvasContext: tempCtx, viewport: viewport }).promise;
-        barcodeImage.src = tempCanvas.toDataURL('image/png');
+            await page.render({ canvasContext: tempCtx, viewport: viewport }).promise;
+            barcodeImage.src = tempCanvas.toDataURL('image/png');
 
-    } catch (error) {
-        console.error('Error rendering barcode PDF:', error);
-        alert(`渲染条码PDF时出错: ${error.message}`);
+        } catch (error) {
+            console.error('Error rendering barcode PDF:', error);
+            alert(`渲染条码PDF时出错: ${error.message}`);
+        }
+    } 
+    // Handle Image files
+    else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Sanitize the image by drawing it to a canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                barcodeImage.src = canvas.toDataURL('image/png');
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        alert('请上传 PDF 或图片文件！');
     }
 };
 
@@ -216,7 +239,7 @@ const composeAndDownload = async () => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         
-        const baseName = barcodeFilename.value.replace(/\.pdf$/i, '');
+        const baseName = barcodeFilename.value.replace(/\.(pdf|png|jpg|jpeg|webp)$/i, '');
         link.download = `${baseName}_result.pdf`;
 
         link.click();
