@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + Vue</title>
+    
+    <!-- SEO Meta Tags -->
+    <title>像素工坊 - 免费在线图片处理工具 | 图片消除 & 徽章排版 & PDF合成</title>
+    <meta name="description" content="像素工坊 是一款免费的在线多功能图片与PDF处理工具箱，提供图片消除、水印移除、徽章批量排版、PDF内容合成等功能。无需下载，浏览器即用。">
+    <meta name="keywords" content="图片消除, 图片修复, inpainting, 移除水印, 徽章排版, 证件照排版, PDF合成, 在线工具, 免费">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://cutpic.ladygiagia.cn/">
+
+    <!-- Open Graph / Facebook / WeChat -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cutpic.ladygiagia.cn/">
+    <meta property="og:title" content="像素工坊 - 免费在线图片处理工具 | 图片消除 & 徽章排版 & PDF合成">
+    <meta property="og:description" content="像素工坊 是一款免费的在线多功能图片与PDF处理工具箱，提供图片消除、水印移除、徽章批量排版、PDF内容合成等功能。无需下载，浏览器即用。">
+    <meta property="og:image" content="https://cutpic.ladygiagia.cn/og-image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://cutpic.ladygiagia.cn/">
+    <meta property="twitter:title" content="像素工坊 - 免费在线图片处理工具 | 图片消除 & 徽章排版 & PDF合成">
+    <meta property="twitter:description" content="像素工坊 是一款免费的在线多功能图片与PDF处理工具箱，提供图片消除、水印移除、徽章批量排版、PDF内容合成等功能。无需下载，浏览器即用。">
+    <meta property="twitter:image" content="https://cutpic.ladygiagia.cn/og-image.png">
+
     <!-- ONNX Runtime from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
@@ -21,11 +42,8 @@
           GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.mjs';
           
           window.pdfjsLib = { getDocument };
-          console.log('PDF.js loaded and configured successfully from jsDelivr.');
         } catch (error) {
           console.error('Failed to load PDF.js from jsDelivr:', error);
-          // This alert can be removed in production
-          alert('PDF.js 库加载失败，请检查网络连接或刷新页面重试。');
         }
       })();
     </script>
