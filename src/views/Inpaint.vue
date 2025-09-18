@@ -1,4 +1,17 @@
 <template>
+  <!-- Loading Modal -->
+  <div v-if="isModelLoading" class="fixed inset-0 bg-white bg-opacity-80 flex flex-col justify-center items-center z-50">
+    <div class="w-full max-w-md p-8 bg-white rounded-lg shadow-xl">
+        <h2 class="text-xl font-semibold text-center mb-4">正在初始化修复模型...</h2>
+        <p class="text-sm text-gray-600 text-center mb-2">首次加载需要下载约30MB的模型文件，请稍候。</p>
+        <div class="w-full bg-gray-200 rounded-full">
+            <div class="bg-blue-500 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full" :style="{ width: modelLoadProgress + '%' }">
+                {{ modelLoadProgress.toFixed(0) }}%
+            </div>
+        </div>
+    </div>
+  </div>
+
   <div class="w-full max-w-4xl mx-auto">
     <!-- 1. 图片上传区域 -->
     <div v-if="!imageLoaded" class="flex items-center justify-center w-full">
@@ -46,8 +59,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
-import inpaint from '../adapters/inpainting.js';
+import { ref, onMounted, nextTick } from 'vue';
+import inpaint, { initInpaintSession } from '../adapters/inpainting.js';
+
+// Model Loading State
+const isModelLoading = ref(true);
+const modelLoadProgress = ref(0);
 
 // DOM 引用
 const imageCanvas = ref(null);
@@ -62,6 +79,18 @@ const canvasWidth = ref(0);
 const canvasHeight = ref(0);
 let originalImage = null;
 let currentImage = null; // To store the image file/blob for iterative inpainting
+
+// Initialize model on component mount
+onMounted(() => {
+    initInpaintSession((progress) => {
+        modelLoadProgress.value = progress;
+    }).then(() => {
+        isModelLoading.value = false;
+    }).catch(err => {
+        console.error("Failed to initialize inpaint session:", err);
+        alert("初始化修复模型失败，请刷新页面重试。错误: " + err.message);
+    });
+});
 
 // 图片上传处理
 const handleImageUpload = (e) => {

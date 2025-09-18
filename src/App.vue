@@ -1,8 +1,16 @@
+<!--
+ * @Author: Layne
+ * @Date: 2025-07-31 11:43:04
+ * @LastEditors: Layne
+ * @LastEditTime: 2025-09-17 17:45:18
+ * @Description: 
+ * @FilePath: /CutPic/src/App.vue
+-->
 <template>
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
     <header class="p-4 bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
       <nav class="max-w-[1200px] mx-auto flex items-center justify-between">
-        <router-link to="/" class="text-xl font-bold">CutPic Tools</router-link>
+        <router-link to="/" class="text-xl font-bold">像素工坊</router-link>
         <div class="flex gap-4">
           <router-link to="/cutpic" class="text-blue-500 hover:underline">图片裁剪</router-link>
           <router-link to="/inpaint" class="text-blue-500 hover:underline">图片消除</router-link>

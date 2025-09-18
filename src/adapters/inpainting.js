@@ -1,6 +1,77 @@
 import cv from 'opencv-ts';
 
-// Simple helper to load an image from a URL
+// --- Session Management ---
+let sessionPromise = null;
+
+async function fetchWithProgress(url, progressCallback) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+    }
+    const contentLength = response.headers.get('content-length');
+    if (!contentLength) {
+        console.warn('Content-Length header not found. Progress will not be available.');
+        return response.arrayBuffer();
+    }
+
+    const total = parseInt(contentLength, 10);
+    let loaded = 0;
+
+    const reader = response.body.getReader();
+    const stream = new ReadableStream({
+        start(controller) {
+            function push() {
+                reader.read().then(({ done, value }) => {
+                    if (done) {
+                        controller.close();
+                        return;
+                    }
+                    loaded += value.length;
+                    if (progressCallback) {
+                        progressCallback((loaded / total) * 100);
+                    }
+                    controller.enqueue(value);
+                    push();
+                }).catch(error => {
+                    console.error(error);
+                    controller.error(error);
+                });
+            }
+            push();
+        }
+    });
+
+    const blob = await new Response(stream).blob();
+    return blob.arrayBuffer();
+}
+
+export function initInpaintSession(progressCallback) {
+  sessionPromise = new Promise(async (resolve, reject) => {
+    try {
+      const ort = window.ort;
+      if (!ort) {
+        throw new Error("ONNX Runtime is not available.");
+      }
+
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+      
+      const modelPath = new URL('/inpaint.onnx', window.location.href).toString();
+      const modelBuffer = await fetchWithProgress(modelPath, progressCallback);
+
+      const session = await ort.InferenceSession.create(modelBuffer, {
+        executionProviders: ['wasm'],
+      });
+
+      resolve(session);
+    } catch (error) {
+      reject(error);
+    }
+  });
+  return sessionPromise;
+}
+
+// --- Image Processing Functions ---
+
 function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -11,7 +82,6 @@ function loadImage(url) {
   });
 }
 
-// Converts image matrix to planar Uint8Array
 function imgProcess(img) {
   const channels = new cv.MatVector();
   cv.split(img, channels);
@@ -31,7 +101,6 @@ function imgProcess(img) {
   return chwArray;
 }
 
-// Processes the mask, creating a binary mask of 0s and 255s
 function markProcess(img) {
     const channels = new cv.MatVector();
     cv.split(img, channels);
@@ -49,8 +118,6 @@ function markProcess(img) {
     return chwArray;
 }
 
-
-// Resizes the mask to match the image dimensions
 function resizeMark(image, width, height) {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
@@ -70,7 +137,6 @@ function resizeMark(image, width, height) {
   });
 }
 
-// Converts the final planar model output to an ImageData object for rendering
 function postProcess(floatData, width, height) {
   const chwToHwcData = [];
   const size = width * height;
@@ -83,7 +149,7 @@ function postProcess(floatData, width, height) {
         else if (pixelVal < 0) pixelVal = 0;
         chwToHwcData.push(pixelVal);
       }
-      chwToHwcData.push(255); // Alpha
+      chwToHwcData.push(255);
     }
   }
   return new ImageData(new Uint8ClampedArray(chwToHwcData), width, height);
@@ -98,20 +164,13 @@ function imageDataToDataURL(imageData) {
   return canvas.toDataURL();
 }
 
-let session = null;
+// --- Main Inpaint Function ---
 
 export default async function inpaint(imageFile, maskBase64) {
-  const ort = window.ort;
-  if (!ort) {
-    throw new Error("ONNX Runtime is not available. Please check the script tag in index.html.");
+  if (!sessionPromise) {
+    throw new Error('Inpaint session not initialized. Call initInpaintSession() first.');
   }
-
-  if (!session) {
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-    session = await ort.InferenceSession.create('./inpaint.onnx', {
-      executionProviders: ['wasm'],
-    });
-  }
+  const session = await sessionPromise;
 
   const [originalImg, originalMark] = await Promise.all([
     imageFile instanceof HTMLImageElement ? imageFile : await loadImage(URL.createObjectURL(imageFile)),
