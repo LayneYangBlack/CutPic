@@ -13,8 +13,12 @@
             <input type="number" id="diameter" v-model="diameter" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
           </div>
           <div>
-            <label for="gap" class="block text-sm font-medium text-gray-700">间隙 (mm)</label>
-            <input type="number" id="gap" v-model="gap" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+            <label for="gapH" class="block text-sm font-medium text-gray-700">横向间隙 (mm)</label>
+            <input type="number" id="gapH" v-model="gapH" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+          </div>
+          <div>
+            <label for="gapV" class="block text-sm font-medium text-gray-700">纵向间隙 (mm)</label>
+            <input type="number" id="gapV" v-model="gapV" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
           </div>
           <div>
             <label for="image-upload" class="block text-sm font-medium text-gray-700">上传图片</label>
@@ -66,7 +70,8 @@ import { ref, nextTick } from 'vue';
 import CustomCropper from '../components/CustomCropper.vue';
 
 const diameter = ref(58);
-const gap = ref(2);
+const gapH = ref(2);
+const gapV = ref(2);
 const imageSrc = ref(null);
 const croppedImageSrc = ref(null);
 const a4Canvas = ref(null);
@@ -130,16 +135,17 @@ const generateLayout = () => {
 
   const diaPx = mmToPx(diameter.value);
   const marginPx = mmToPx(MARGIN_MM);
-  const gapPx = mmToPx(gap.value);
+  const gapHPx = mmToPx(gapH.value);
+  const gapVPx = mmToPx(gapV.value);
 
   const effectiveWidth = canvas.width - (2 * marginPx);
   const effectiveHeight = canvas.height - (2 * marginPx);
 
-  const itemWidth = diaPx + gapPx;
-  const itemHeight = diaPx + gapPx;
+  const itemWidth = diaPx + gapHPx;
+  const itemHeight = diaPx + gapVPx;
 
-  const cols = Math.floor((effectiveWidth + gapPx) / itemWidth);
-  const rows = Math.floor((effectiveHeight + gapPx) / itemHeight);
+  const cols = Math.floor((effectiveWidth + gapHPx) / itemWidth);
+  const rows = Math.floor((effectiveHeight + gapVPx) / itemHeight);
 
   if (cols === 0 || rows === 0) {
       alert('徽章尺寸过大，无法在A4纸上进行排版！');
