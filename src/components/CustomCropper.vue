@@ -1,9 +1,11 @@
 <template>
   <div class="custom-cropper-wrapper">
-    <canvas ref="canvas" @mousedown="onMouseDown" @mousemove="onMouseMove" @mouseup="onMouseUp" @mouseleave="onMouseUp"></canvas>
+    <canvas ref="canvas" @mousedown="onMouseDown" @mousemove="onMouseMove" @mouseup="onMouseUp" @mouseleave="onMouseUp" @wheel.prevent="onWheel"></canvas>
     <div class="controls">
       <label for="zoom">缩放:</label>
-      <input type="range" id="zoom" min="0.1" max="3" step="0.05" v-model.number="zoom" @input="onZoomChange">
+      <button @click="zoomOut" class="zoom-btn">-</button>
+      <input type="range" id="zoom" min="0.1" max="3" step="0.05" :value="zoom" @input="handleZoomSlider($event.target.value)">
+      <button @click="zoomIn" class="zoom-btn">+</button>
     </div>
   </div>
 </template>
@@ -57,14 +59,23 @@ watch(() => props.src, (newSrc) => {
 }, { immediate: true });
 
 const resetTransform = () => {
-    zoom.value = 1;
-    if (image.value && canvas.value) {
+    if (image.value && canvas.value && canvas.value.width > 0) {
+        // Scale image to fit the circle crop area
+        const canvasRadius = Math.min(canvas.value.width, canvas.value.height) / 2;
+        const imgMinDim = Math.min(image.value.width, image.value.height);
+        
+        zoom.value = (canvasRadius * 2) / imgMinDim;
+
         // Center the image
         offset.value = {
-            x: (canvas.value.width - image.value.width) / 2,
-            y: (canvas.value.height - image.value.height) / 2,
+            x: (canvas.value.width - image.value.width * zoom.value) / 2,
+            y: (canvas.value.height - image.value.height * zoom.value) / 2,
         };
+    } else {
+        zoom.value = 1;
+        offset.value = { x: 0, y: 0 };
     }
+    redraw();
 };
 
 const redraw = () => {
@@ -120,8 +131,46 @@ const onMouseUp = () => {
   isDragging.value = false;
 };
 
-const onZoomChange = () => {
+const handleZoom = (newZoomValue, clientX, clientY) => {
+    const oldZoom = zoom.value;
+    const newZoom = Math.max(0.1, Math.min(newZoomValue, 3));
+
+    if (newZoom === oldZoom || !canvas.value || !image.value) {
+        return;
+    }
+
+    const canvasRect = canvas.value.getBoundingClientRect();
+    const zoomCenterX = clientX ? clientX - canvasRect.left : canvas.value.width / 2;
+    const zoomCenterY = clientY ? clientY - canvasRect.top : canvas.value.height / 2;
+
+    const imgPoint = {
+        x: (zoomCenterX - offset.value.x) / oldZoom,
+        y: (zoomCenterY - offset.value.y) / oldZoom,
+    };
+
+    offset.value.x = zoomCenterX - imgPoint.x * newZoom;
+    offset.value.y = zoomCenterY - imgPoint.y * newZoom;
+
+    zoom.value = newZoom;
+
     redraw();
+}
+
+const handleZoomSlider = (value) => {
+    handleZoom(Number(value));
+}
+
+const zoomIn = () => {
+    handleZoom(zoom.value + 0.1);
+}
+
+const zoomOut = () => {
+    handleZoom(zoom.value - 0.1);
+}
+
+const onWheel = (e) => {
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    handleZoom(zoom.value * zoomFactor, e.clientX, e.clientY);
 }
 
 const crop = () => {
@@ -184,6 +233,7 @@ canvas:active {
 .controls {
   position: absolute;
   bottom: 10px;
+  width: 300px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.7);
@@ -191,5 +241,26 @@ canvas:active {
   border-radius: 10px;
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+label {
+    flex-shrink: 0;
+}
+.zoom-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    background-color: white;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 22px;
+    text-align: center;
+}
+.zoom-btn:hover {
+    background-color: #f0f0f0;
 }
 </style>

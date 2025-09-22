@@ -202,6 +202,11 @@ canvas {
 }
 
 @media print {
+  @page {
+    /* 隐藏浏览器默认的页眉和页脚 */
+    margin: 0;
+    size: A4;
+  }
   body * {
     visibility: hidden;
   }
