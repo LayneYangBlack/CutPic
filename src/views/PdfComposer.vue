@@ -35,20 +35,37 @@
         <input type="file" @change="handleBarcodeUpload" accept=".pdf,image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
     </div>
 
-    <!-- Step 4: Compose and Download -->
+    <!-- Step 4: Compose and Preview -->
     <div v-if="barcodeImage.src" class="p-4 border rounded-lg bg-white shadow-sm text-center">
-        <h2 class="text-lg font-semibold mb-4">4. 合成并下载</h2>
+        <h2 class="text-lg font-semibold mb-4">4. 合成并预览</h2>
         <p class="text-sm text-gray-500 mb-4">所有材料准备就绪！</p>
-        <button @click="composeAndDownload" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg" :disabled="isComposing">
-            {{ isComposing ? '正在合成中...' : '合成并下载 PDF' }}
+        <button @click="composeAndPreview" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg" :disabled="isComposing">
+            {{ isComposing ? '正在合成中...' : '合成并预览' }}
         </button>
+    </div>
+
+    <!-- Preview Modal -->
+    <div v-if="showPreviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-2xl w-11/12 md:w-3/4 lg:w-1/2 max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center p-4 border-b">
+          <h2 class="text-xl font-bold">预览与操作</h2>
+          <button @click="closePreview" class="text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
+        </div>
+        <div class="p-4 flex-grow overflow-y-auto">
+          <iframe :src="previewPdfUrl" ref="previewIframe" class="w-full h-[60vh] border-none"></iframe>
+        </div>
+        <div class="flex justify-end items-center p-4 border-t gap-4">
+          <button @click="printPdf" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">打印</button>
+          <button @click="downloadPdf" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">下载</button>
+        </div>
+      </div>
     </div>
 
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onUnmounted } from 'vue';
 
 const templateCanvas = ref(null);
 const selectionCanvas = ref(null);
@@ -63,6 +80,10 @@ const selectionRect = reactive({ x: 0, y: 0, width: 0, height: 0 });
 const barcodeImage = reactive({ src: null });
 const barcodeFilename = ref('');
 const isComposing = ref(false);
+
+const showPreviewModal = ref(false);
+const previewPdfUrl = ref('');
+const previewIframe = ref(null);
 
 const handleTemplateUpload = async (event) => {
   const file = event.target.files[0];
@@ -199,7 +220,7 @@ const handleBarcodeUpload = async (event) => {
     }
 };
 
-const composeAndDownload = async () => {
+const composeAndPreview = async () => {
     if (!templateFile.value || !barcodeImage.src || !selectionRect.width) {
         alert('请先完成所有步骤！');
         return;
@@ -236,14 +257,12 @@ const composeAndDownload = async () => {
 
         const pdfBytes = await pdfDoc.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
         
-        const baseName = barcodeFilename.value.replace(/\.(pdf|png|jpg|jpeg|webp)$/i, '');
-        link.download = `${baseName}_result.pdf`;
-
-        link.click();
-        URL.revokeObjectURL(link.href);
+        if (previewPdfUrl.value) {
+            URL.revokeObjectURL(previewPdfUrl.value);
+        }
+        previewPdfUrl.value = URL.createObjectURL(blob);
+        showPreviewModal.value = true;
 
     } catch (error) {
         console.error('Error composing PDF:', error);
@@ -252,6 +271,43 @@ const composeAndDownload = async () => {
         isComposing.value = false;
     }
 };
+
+const closePreview = () => {
+    showPreviewModal.value = false;
+};
+
+const downloadPdf = () => {
+    if (!previewPdfUrl.value) return;
+    const link = document.createElement('a');
+    link.href = previewPdfUrl.value;
+    const baseName = barcodeFilename.value.replace(/\.(pdf|png|jpg|jpeg|webp)$/i, '');
+    link.download = `${baseName}_result.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+const printPdf = () => {
+    if (!previewIframe.value) return;
+    try {
+        const iframe = previewIframe.value;
+        if (iframe.contentWindow) {
+            iframe.contentWindow.focus(); // Required for some browsers
+            iframe.contentWindow.print();
+        } else {
+            alert('无法访问打印内容。');
+        }
+    } catch (e) {
+        alert('打印功能出错，您的浏览器可能阻止了此操作。');
+        console.error('Print error:', e);
+    }
+};
+
+onUnmounted(() => {
+    if (previewPdfUrl.value) {
+        URL.revokeObjectURL(previewPdfUrl.value);
+    }
+});
 
 </script>
 
