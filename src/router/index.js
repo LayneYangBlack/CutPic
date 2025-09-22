@@ -4,6 +4,7 @@ import Inpaint from '../views/Inpaint.vue'
 import Home from '../views/Home.vue'
 import BadgeLayout from '../views/BadgeLayout.vue'
 import PdfComposer from '../views/PdfComposer.vue'
+import BackgroundRemoval from '../views/BackgroundRemoval.vue';
 
 const routes = [
   {
@@ -30,6 +31,11 @@ const routes = [
     path: '/pdf-composer',
     name: 'PdfComposer',
     component: PdfComposer
+  },
+  {
+    path: '/remove-background',
+    name: 'BackgroundRemoval',
+    component: BackgroundRemoval
   }
 ]
 
