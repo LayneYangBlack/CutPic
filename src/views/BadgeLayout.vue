@@ -9,8 +9,10 @@
         <h2 class="text-lg font-semibold mb-2">1. 输入设置</h2>
         <div class="space-y-4">
           <div>
-            <label for="diameter" class="block text-sm font-medium text-gray-700">圆形直径 (mm)</label>
-            <input type="number" id="diameter" v-model="diameter" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+            <label for="size-select" class="block text-sm font-medium text-gray-700">选择尺寸 (图片直径)</label>
+            <select id="size-select" v-model="selectedSize" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+              <option v-for="(outer, inner) in sizeMap" :key="inner" :value="inner">{{ inner }}mm (外圈 {{ outer }}mm)</option>
+            </select>
           </div>
           <div>
             <label for="gapH" class="block text-sm font-medium text-gray-700">横向间隙 (mm)</label>
@@ -66,10 +68,22 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref } from 'vue';
 import CustomCropper from '../components/CustomCropper.vue';
 
-const diameter = ref(58);
+// --- State ---
+const sizeMap = {
+  25: 32,
+  32: 44,
+  37: 49,
+  44: 54,
+  50: 61,
+  56: 66,
+  58: 70,
+  65: 76,
+  75: 86,
+};
+const selectedSize = ref(58);
 const gapH = ref(2);
 const gapV = ref(2);
 const imageSrc = ref(null);
@@ -78,6 +92,7 @@ const a4Canvas = ref(null);
 const cropper = ref(null);
 const printableImage = ref(null);
 
+// --- Methods ---
 const handleImageUpload = (event) => {
   const file = event.target.files[0];
   if (file) {
@@ -85,16 +100,13 @@ const handleImageUpload = (event) => {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // Sanitize the image by drawing it to a canvas
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
-        
-        // Use the sanitized PNG data URL
         imageSrc.value = canvas.toDataURL('image/png');
-        croppedImageSrc.value = null; // Reset previous crop
+        croppedImageSrc.value = null;
       };
       img.src = e.target.result;
     };
@@ -121,7 +133,13 @@ const generateLayout = () => {
   const MM_PER_INCH = 25.4;
   const A4_WIDTH_MM = 210;
   const A4_HEIGHT_MM = 297;
-  const MARGIN_MM = 5;
+  const marginTopMM = 15;
+  const marginLeftMM = 12;
+  const marginRightMM = 12;
+  const marginBottomMM = 15;
+
+  const innerDiameterMM = selectedSize.value;
+  const outerDiameterMM = sizeMap[innerDiameterMM];
 
   const mmToPx = (mm) => (mm / MM_PER_INCH) * DPI;
 
@@ -133,16 +151,21 @@ const generateLayout = () => {
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const diaPx = mmToPx(diameter.value);
-  const marginPx = mmToPx(MARGIN_MM);
+  const innerDiaPx = mmToPx(innerDiameterMM);
+  const outerDiaPx = mmToPx(outerDiameterMM);
+  const marginTopPx = mmToPx(marginTopMM);
+  const marginLeftPx = mmToPx(marginLeftMM);
+  const marginRightPx = mmToPx(marginRightMM);
+  const marginBottomPx = mmToPx(marginBottomMM);
   const gapHPx = mmToPx(gapH.value);
   const gapVPx = mmToPx(gapV.value);
 
-  const effectiveWidth = canvas.width - (2 * marginPx);
-  const effectiveHeight = canvas.height - (2 * marginPx);
+  const effectiveWidth = canvas.width - marginLeftPx - marginRightPx;
+  const effectiveHeight = canvas.height - marginTopPx - marginBottomPx;
 
-  const itemWidth = diaPx + gapHPx;
-  const itemHeight = diaPx + gapVPx;
+  // Layout calculation is based on the outer circle's diameter
+  const itemWidth = outerDiaPx + gapHPx;
+  const itemHeight = outerDiaPx + gapVPx;
 
   const cols = Math.floor((effectiveWidth + gapHPx) / itemWidth);
   const rows = Math.floor((effectiveHeight + gapVPx) / itemHeight);
@@ -156,9 +179,27 @@ const generateLayout = () => {
   img.onload = () => {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = marginPx + c * itemWidth;
-        const y = marginPx + r * itemHeight;
-        ctx.drawImage(img, x, y, diaPx, diaPx);
+        const x = marginLeftPx + c * itemWidth;
+        const y = marginTopPx + r * itemHeight;
+
+        // 1. Draw dashed outer circle
+        ctx.save();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]); // Dash pattern: 4px line, 2px gap
+        ctx.beginPath();
+        ctx.arc(x + outerDiaPx / 2, y + outerDiaPx / 2, outerDiaPx / 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. Draw inner image, clipped to a circle
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x + outerDiaPx / 2, y + outerDiaPx / 2, innerDiaPx / 2, 0, Math.PI * 2);
+        ctx.clip();
+        // Draw the image centered within the outer circle area
+        ctx.drawImage(img, x + (outerDiaPx - innerDiaPx) / 2, y + (outerDiaPx - innerDiaPx) / 2, innerDiaPx, innerDiaPx);
+        ctx.restore();
       }
     }
   };
@@ -167,7 +208,7 @@ const generateLayout = () => {
 
 const printLayout = () => {
   const canvas = a4Canvas.value;
-  if (canvas && canvas.width > 1 && canvas.height > 1) { // Check if canvas has been drawn on
+  if (canvas && canvas.width > 1 && canvas.height > 1) {
     const printableImgEl = printableImage.value;
     
     printableImgEl.onload = () => {
