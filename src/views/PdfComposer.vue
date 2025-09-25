@@ -1,6 +1,6 @@
 <template>
   <div class="p-4 md:p-8 space-y-6">
-    <h1 class="text-2xl font-bold">PDF 合成工具</h1>
+    <h1 class="text-2xl font-bold">PDF 合成工具 (支持批量)</h1>
 
     <!-- Step 1: Upload Template -->
     <div class="p-4 border rounded-lg bg-white shadow-sm">
@@ -31,16 +31,23 @@
 
     <!-- Step 3: Upload Barcode -->
     <div v-if="selectionRect.width" class="p-4 border rounded-lg bg-white shadow-sm">
-        <h2 class="text-lg font-semibold mb-2">3. 上传条码文件 (PDF 或图片)</h2>
-        <input type="file" @change="handleBarcodeUpload" accept=".pdf,image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        <h2 class="text-lg font-semibold mb-2">3. 上传条码文件 (可多选)</h2>
+        <input type="file" @change="handleBarcodeUpload" accept=".pdf,image/*" multiple class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        <div v-if="barcodeFiles.length" class="mt-4">
+            <h3 class="text-md font-semibold">已选择文件 ({{ barcodeFiles.length }}):</h3>
+            <ul class="list-disc list-inside max-h-40 overflow-y-auto mt-2 text-sm text-gray-600">
+                <li v-for="file in barcodeFiles" :key="file.name">{{ file.name }}</li>
+            </ul>
+        </div>
     </div>
 
-    <!-- Step 4: Compose and Preview -->
-    <div v-if="barcodeImage.src" class="p-4 border rounded-lg bg-white shadow-sm text-center">
-        <h2 class="text-lg font-semibold mb-4">4. 合成并预览</h2>
+    <!-- Step 4: Compose -->
+    <div v-if="barcodeFiles.length > 0" class="p-4 border rounded-lg bg-white shadow-sm text-center">
+        <h2 class="text-lg font-semibold mb-4">4. 开始合成</h2>
         <p class="text-sm text-gray-500 mb-4">所有材料准备就绪！</p>
-        <button @click="composeAndPreview" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg" :disabled="isComposing">
-            {{ isComposing ? '正在合成中...' : '合成并预览' }}
+        <button @click="startComposition" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg" :disabled="isComposing">
+            <span v-if="isComposing">{{ composingProgress }}</span>
+            <span v-else>{{ barcodeFiles.length > 1 ? '批量合成并下载 ZIP' : '合成并预览' }}</span>
         </button>
     </div>
 
@@ -67,6 +74,7 @@
 <script setup>
 import { ref, reactive, onUnmounted } from 'vue';
 
+// --- State ---
 const templateCanvas = ref(null);
 const selectionCanvas = ref(null);
 const isTemplateRendered = ref(false);
@@ -77,55 +85,50 @@ const isDrawing = ref(false);
 const startPos = reactive({ x: 0, y: 0 });
 const selectionRect = reactive({ x: 0, y: 0, width: 0, height: 0 });
 
-const barcodeImage = reactive({ src: null });
-const barcodeFilename = ref('');
+const barcodeFiles = ref([]);
 const isComposing = ref(false);
+const composingProgress = ref('');
 
 const showPreviewModal = ref(false);
 const previewPdfUrl = ref('');
 const previewIframe = ref(null);
 
+// --- PDF Template Handling ---
 const handleTemplateUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   templateFile.value = file;
   selectionRect.width = 0;
-  barcodeImage.src = null;
+  barcodeFiles.value = [];
 
   try {
     const pdfjsLib = await window.pdfjsLibPromise;
-    if (!pdfjsLib) { alert('PDF.js 库未能成功加载'); return; }
-
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const page = await pdf.getPage(1);
     pdfPage.value = page;
 
     const viewport = page.getViewport({ scale: 1.5 });
-    
     const canvas = templateCanvas.value;
     const selCanvas = selectionCanvas.value;
     const context = canvas.getContext('2d');
 
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    selCanvas.height = viewport.height;
-    selCanvas.width = viewport.width;
-
-    canvas.style.width = viewport.width + 'px';
-    canvas.style.height = viewport.height + 'px';
-    selCanvas.style.width = viewport.width + 'px';
-    selCanvas.style.height = viewport.height + 'px';
+    [canvas, selCanvas].forEach(c => {
+        c.height = viewport.height;
+        c.width = viewport.width;
+        c.style.width = viewport.width + 'px';
+        c.style.height = viewport.height + 'px';
+    });
 
     await page.render({ canvasContext: context, viewport: viewport }).promise;
     isTemplateRendered.value = true;
-
   } catch (error) {
-    console.error('Error rendering PDF:', error);
-    alert(`渲染PDF时出错: ${error.message}`);
+    console.error('Error rendering PDF template:', error);
+    alert(`渲染PDF模板时出错: ${error.message}`);
   }
 };
 
+// --- Selection Area Drawing ---
 const onMouseDown = (e) => {
     if (!isTemplateRendered.value) return;
     isDrawing.value = true;
@@ -139,22 +142,14 @@ const onMouseDown = (e) => {
 
 const onMouseMove = (e) => {
     if (!isDrawing.value) return;
-
     const canvas = selectionCanvas.value;
     const context = canvas.getContext('2d');
-    const currentX = e.offsetX;
-    const currentY = e.offsetY;
-
-    const width = currentX - startPos.x;
-    const height = currentY - startPos.y;
+    const width = e.offsetX - startPos.x;
+    const height = e.offsetY - startPos.y;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-    
-    context.beginPath();
-
     context.fillStyle = 'rgba(255, 0, 0, 0.2)';
     context.fillRect(startPos.x, startPos.y, width, height);
-
     context.strokeStyle = 'red';
     context.lineWidth = 2;
     context.strokeRect(startPos.x, startPos.y, width, height);
@@ -169,109 +164,162 @@ const onMouseUp = () => {
     isDrawing.value = false;
 };
 
+// --- Barcode File Handling ---
 const handleBarcodeUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    barcodeFilename.value = file.name;
+    const files = event.target.files;
+    if (!files.length) return;
+    
+    barcodeFiles.value = []; // Reset on new upload
+    isComposing.value = true;
+    composingProgress.value = '正在处理上传的文件...';
 
-    // Handle PDF files
-    if (file.type === 'application/pdf') {
+    const processedFiles = [];
+    for (const file of files) {
         try {
-            const pdfjsLib = await window.pdfjsLibPromise;
-            if (!pdfjsLib) { alert('PDF.js 库尚未加载完成'); return; }
-
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2.0 });
-
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.height = viewport.height;
-            tempCanvas.width = viewport.width;
-
-            await page.render({ canvasContext: tempCtx, viewport: viewport }).promise;
-            barcodeImage.src = tempCanvas.toDataURL('image/png');
-
+            let src = null;
+            if (file.type === 'application/pdf') {
+                const pdfjsLib = await window.pdfjsLibPromise;
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 2.0 });
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.height = viewport.height;
+                tempCanvas.width = viewport.width;
+                await page.render({ canvasContext: tempCanvas.getContext('2d'), viewport: viewport }).promise;
+                src = tempCanvas.toDataURL('image/png');
+            } else if (file.type.startsWith('image/')) {
+                src = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            canvas.getContext('2d').drawImage(img, 0, 0);
+                            resolve(canvas.toDataURL('image/png'));
+                        };
+                        img.onerror = reject;
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                continue; // Skip unsupported files
+            }
+            processedFiles.push({ name: file.name, src });
         } catch (error) {
-            console.error('Error rendering barcode PDF:', error);
-            alert(`渲染条码PDF时出错: ${error.message}`);
+            console.error(`Error processing file ${file.name}:`, error);
+            alert(`处理文件 ${file.name} 时出错: ${error.message}`);
         }
-    } 
-    // Handle Image files
-    else if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                // Sanitize the image by drawing it to a canvas
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                barcodeImage.src = canvas.toDataURL('image/png');
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    } else {
-        alert('请上传 PDF 或图片文件！');
     }
+    barcodeFiles.value = processedFiles;
+    isComposing.value = false;
+    composingProgress.value = '';
 };
 
-const composeAndPreview = async () => {
-    if (!templateFile.value || !barcodeImage.src || !selectionRect.width) {
+// --- Composition Logic ---
+const startComposition = async () => {
+    if (!templateFile.value || !barcodeFiles.value.length || !selectionRect.width) {
         alert('请先完成所有步骤！');
         return;
     }
-    isComposing.value = true;
 
+    if (barcodeFiles.value.length === 1) {
+        await composeSinglePdf();
+    } else {
+        await composeBatchZip();
+    }
+};
+
+const createPdfPage = async (pdfDoc, barcodeSrc) => {
+    const barcodeImageEmbed = await pdfDoc.embedPng(barcodeSrc);
+    const templatePage = pdfDoc.getPages()[0];
+    const { width, height } = templatePage.getSize();
+
+    const viewport = await (await window.pdfjsLib.getDocument(await templateFile.value.arrayBuffer()).promise).getPage(1).then(p => p.getViewport({ scale: 1.5 }));
+    const scale = height / viewport.height;
+
+    const pdfX = selectionRect.x * scale;
+    const pdfY = height - (selectionRect.y * scale) - (selectionRect.height * scale);
+    const pdfWidth = selectionRect.width * scale;
+    const pdfHeight = selectionRect.height * scale;
+
+    templatePage.drawImage(barcodeImageEmbed, {
+        x: pdfX,
+        y: pdfY,
+        width: pdfWidth,
+        height: pdfHeight,
+    });
+};
+
+const composeSinglePdf = async () => {
+    isComposing.value = true;
+    composingProgress.value = '正在合成PDF...';
     try {
         const { PDFDocument } = window.PDFLib;
-        if (!PDFDocument) { alert('pdf-lib 库未能成功加载！'); isComposing.value = false; return; }
-        
         const templateBytes = await templateFile.value.arrayBuffer();
         const pdfDoc = await PDFDocument.load(templateBytes);
-        const page = pdfDoc.getPages()[0];
-
-        const barcodeBytes = barcodeImage.src;
-        const barcodeImageEmbed = await pdfDoc.embedPng(barcodeBytes);
-
-        const pdfRenderedPage = await (await window.pdfjsLib.getDocument({data: templateBytes}).promise).getPage(1);
-        const viewport = pdfRenderedPage.getViewport({ scale: 1.5 });
-        const pageHeight = page.getHeight();
-        const scale = page.getHeight() / viewport.height;
-
-        const pdfX = selectionRect.x * scale;
-        const pdfY = pageHeight - (selectionRect.y * scale) - (selectionRect.height * scale);
-        const pdfWidth = selectionRect.width * scale;
-        const pdfHeight = selectionRect.height * scale;
-
-        page.drawImage(barcodeImageEmbed, {
-            x: pdfX,
-            y: pdfY,
-            width: pdfWidth,
-            height: pdfHeight,
-        });
+        
+        await createPdfPage(pdfDoc, barcodeFiles.value[0].src);
 
         const pdfBytes = await pdfDoc.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         
-        if (previewPdfUrl.value) {
-            URL.revokeObjectURL(previewPdfUrl.value);
-        }
+        if (previewPdfUrl.value) URL.revokeObjectURL(previewPdfUrl.value);
         previewPdfUrl.value = URL.createObjectURL(blob);
         showPreviewModal.value = true;
-
     } catch (error) {
-        console.error('Error composing PDF:', error);
+        console.error('Error composing single PDF:', error);
         alert(`合成PDF时出错: ${error.message}`);
     } finally {
         isComposing.value = false;
+        composingProgress.value = '';
     }
 };
 
+const composeBatchZip = async () => {
+    isComposing.value = true;
+    try {
+        const { PDFDocument } = window.PDFLib;
+        const zip = new window.JSZip();
+        const templateBytes = await templateFile.value.arrayBuffer();
+
+        for (let i = 0; i < barcodeFiles.value.length; i++) {
+            const barcode = barcodeFiles.value[i];
+            composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcode.name}`;
+            
+            // Load a fresh template for each file
+            const pdfDoc = await PDFDocument.load(templateBytes);
+            await createPdfPage(pdfDoc, barcode.src);
+            const pdfBytes = await pdfDoc.save();
+
+            const baseName = barcode.name.replace(/\.(pdf|png|jpg|jpeg|webp)$/i, '');
+            zip.file(`${baseName}_result.pdf`, pdfBytes);
+        }
+
+        composingProgress.value = '正在生成ZIP文件...';
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = '合成结果.zip';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+    } catch (error) {
+        console.error('Error composing batch zip:', error);
+        alert(`批量合成时出错: ${error.message}`);
+    } finally {
+        isComposing.value = false;
+        composingProgress.value = '';
+    }
+};
+
+// --- Modal and Download/Print Logic ---
 const closePreview = () => {
     showPreviewModal.value = false;
 };
@@ -280,7 +328,7 @@ const downloadPdf = () => {
     if (!previewPdfUrl.value) return;
     const link = document.createElement('a');
     link.href = previewPdfUrl.value;
-    const baseName = barcodeFilename.value.replace(/\.(pdf|png|jpg|jpeg|webp)$/i, '');
+    const baseName = barcodeFiles.value[0].name.replace(/\.(pdf|png|jpg|jpeg|webp)$/i, '');
     link.download = `${baseName}_result.pdf`;
     document.body.appendChild(link);
     link.click();
@@ -288,15 +336,10 @@ const downloadPdf = () => {
 };
 
 const printPdf = () => {
-    if (!previewIframe.value) return;
+    if (!previewIframe.value?.contentWindow) return;
     try {
-        const iframe = previewIframe.value;
-        if (iframe.contentWindow) {
-            iframe.contentWindow.focus(); // Required for some browsers
-            iframe.contentWindow.print();
-        } else {
-            alert('无法访问打印内容。');
-        }
+        previewIframe.value.contentWindow.focus();
+        previewIframe.value.contentWindow.print();
     } catch (e) {
         alert('打印功能出错，您的浏览器可能阻止了此操作。');
         console.error('Print error:', e);
