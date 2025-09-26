@@ -6,7 +6,14 @@
 
       <!-- Step 1: Settings -->
       <div class="p-4 border rounded-lg bg-white shadow-sm">
-        <h2 class="text-lg font-semibold mb-2">1. 输入设置</h2>
+        <h2 class="text-lg font-semibold mb-4">1. 输入设置</h2>
+
+        <!-- Mode Tabs -->
+        <div class="flex border-b mb-4">
+          <button @click="layoutMode = 'manual'" :class="{'border-blue-500 text-blue-600': layoutMode === 'manual', 'border-transparent text-gray-500': layoutMode !== 'manual'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">手动模式</button>
+          <button @click="layoutMode = 'auto'" :class="{'border-blue-500 text-blue-600': layoutMode === 'auto', 'border-transparent text-gray-500': layoutMode !== 'auto'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">自动模式</button>
+        </div>
+
         <div class="space-y-4">
           <div>
             <label for="size-select" class="block text-sm font-medium text-gray-700">选择尺寸 (图片直径)</label>
@@ -14,14 +21,22 @@
               <option v-for="(outer, inner) in sizeMap" :key="inner" :value="inner">{{ inner }}mm (外圈 {{ outer }}mm)</option>
             </select>
           </div>
-          <div>
-            <label for="gapH" class="block text-sm font-medium text-gray-700">横向间隙 (mm)</label>
-            <input type="number" id="gapH" v-model="gapH" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+          
+          <div v-if="layoutMode === 'manual'" class="space-y-4 animate-fade-in">
+            <div>
+              <label for="gapH" class="block text-sm font-medium text-gray-700">横向间隙 (mm)</label>
+              <input type="number" id="gapH" v-model="gapH" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+            </div>
+            <div>
+              <label for="gapV" class="block text-sm font-medium text-gray-700">纵向间隙 (mm)</label>
+              <input type="number" id="gapV" v-model="gapV" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+            </div>
           </div>
-          <div>
-            <label for="gapV" class="block text-sm font-medium text-gray-700">纵向间隙 (mm)</label>
-            <input type="number" id="gapV" v-model="gapV" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+
+          <div v-if="layoutMode === 'auto'" class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 animate-fade-in">
+            <p>自动模式将最大化利用纸张空间，并自动计算间隙，实现页面居中对齐。</p>
           </div>
+
           <div>
             <label for="image-upload" class="block text-sm font-medium text-gray-700">上传图片</label>
             <input type="file" id="image-upload" @change="handleImageUpload" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
@@ -72,16 +87,9 @@ import { ref } from 'vue';
 import CustomCropper from '../components/CustomCropper.vue';
 
 // --- State ---
+const layoutMode = ref('manual'); // 'manual' or 'auto'
 const sizeMap = {
-  25: 32,
-  32: 44,
-  37: 49,
-  44: 54,
-  50: 61,
-  56: 66,
-  58: 70,
-  65: 76,
-  75: 86,
+  25: 32, 32: 44, 37: 49, 44: 54, 50: 61, 56: 66, 58: 70, 65: 76, 75: 86,
 };
 const selectedSize = ref(58);
 const gapH = ref(2);
@@ -103,8 +111,7 @@ const handleImageUpload = (event) => {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        canvas.getContext('2d').drawImage(img, 0, 0);
         imageSrc.value = canvas.toDataURL('image/png');
         croppedImageSrc.value = null;
       };
@@ -116,10 +123,7 @@ const handleImageUpload = (event) => {
 
 const confirmCrop = () => {
   if (cropper.value) {
-    const dataUrl = cropper.value.crop();
-    if (dataUrl) {
-        croppedImageSrc.value = dataUrl;
-    }
+    croppedImageSrc.value = cropper.value.crop();
   }
 };
 
@@ -133,60 +137,89 @@ const generateLayout = () => {
   const MM_PER_INCH = 25.4;
   const A4_WIDTH_MM = 210;
   const A4_HEIGHT_MM = 297;
-  const marginTopMM = 15;
-  const marginLeftMM = 12;
-  const marginRightMM = 12;
-  const marginBottomMM = 15;
-
-  const innerDiameterMM = selectedSize.value;
-  const outerDiameterMM = sizeMap[innerDiameterMM];
-
   const mmToPx = (mm) => (mm / MM_PER_INCH) * DPI;
 
   const canvas = a4Canvas.value;
   const ctx = canvas.getContext('2d');
-
   canvas.width = mmToPx(A4_WIDTH_MM);
   canvas.height = mmToPx(A4_HEIGHT_MM);
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  const innerDiameterMM = selectedSize.value;
+  const outerDiameterMM = sizeMap[innerDiameterMM];
   const innerDiaPx = mmToPx(innerDiameterMM);
   const outerDiaPx = mmToPx(outerDiameterMM);
-  const marginTopPx = mmToPx(marginTopMM);
-  const marginLeftPx = mmToPx(marginLeftMM);
-  const marginRightPx = mmToPx(marginRightMM);
-  const marginBottomPx = mmToPx(marginBottomMM);
-  const gapHPx = mmToPx(gapH.value);
-  const gapVPx = mmToPx(gapV.value);
 
-  const effectiveWidth = canvas.width - marginLeftPx - marginRightPx;
-  const effectiveHeight = canvas.height - marginTopPx - marginBottomPx;
+  let cols, rows, startX, startY, itemSpacingX, itemSpacingY;
 
-  // Layout calculation is based on the outer circle's diameter
-  const itemWidth = outerDiaPx + gapHPx;
-  const itemHeight = outerDiaPx + gapVPx;
+  if (layoutMode.value === 'auto') {
+    // --- AUTO MODE LOGIC ---
+    // For smaller sizes, use a larger minimum gap to avoid being too compact.
+    const minGapMM = selectedSize.value <= 32 ? 4 : 2;
+    const minGapPx = mmToPx(minGapMM);
+    
+    cols = Math.floor((canvas.width + minGapPx) / (outerDiaPx + minGapPx));
+    rows = Math.floor((canvas.height + minGapPx) / (outerDiaPx + minGapPx));
 
-  const cols = Math.floor((effectiveWidth + gapHPx) / itemWidth);
-  const rows = Math.floor((effectiveHeight + gapVPx) / itemHeight);
-
-  if (cols === 0 || rows === 0) {
+    if (cols === 0 || rows === 0) {
       alert('徽章尺寸过大，无法在A4纸上进行排版！');
       return;
+    }
+
+    const totalBadgesWidth = cols * outerDiaPx;
+    const remainingWidth = canvas.width - totalBadgesWidth;
+    const horizontalGap = remainingWidth / (cols + 1);
+
+    const totalBadgesHeight = rows * outerDiaPx;
+    const remainingHeight = canvas.height - totalBadgesHeight;
+    const verticalGap = remainingHeight / (rows + 1);
+
+    startX = horizontalGap;
+    startY = verticalGap;
+    itemSpacingX = outerDiaPx + horizontalGap;
+    itemSpacingY = outerDiaPx + verticalGap;
+
+  } else {
+    // --- MANUAL MODE LOGIC ---
+    const marginTopMM = 15, marginLeftMM = 12, marginRightMM = 12, marginBottomMM = 15;
+    const marginTopPx = mmToPx(marginTopMM);
+    const marginLeftPx = mmToPx(marginLeftMM);
+    const marginRightPx = mmToPx(marginRightMM);
+    const marginBottomPx = mmToPx(marginBottomMM);
+    const gapHPx = mmToPx(gapH.value);
+    const gapVPx = mmToPx(gapV.value);
+
+    const effectiveWidth = canvas.width - marginLeftPx - marginRightPx;
+    const effectiveHeight = canvas.height - marginTopPx - marginBottomPx;
+
+    itemSpacingX = outerDiaPx + gapHPx;
+    itemSpacingY = outerDiaPx + gapVPx;
+
+    cols = Math.floor((effectiveWidth + gapHPx) / itemSpacingX);
+    rows = Math.floor((effectiveHeight + gapVPx) / itemSpacingY);
+    
+    if (cols === 0 || rows === 0) {
+      alert('徽章尺寸过大，无法在A4纸上进行排版！');
+      return;
+    }
+
+    startX = marginLeftPx;
+    startY = marginTopPx;
   }
 
   const img = new Image();
   img.onload = () => {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = marginLeftPx + c * itemWidth;
-        const y = marginTopPx + r * itemHeight;
+        const x = startX + c * itemSpacingX;
+        const y = startY + r * itemSpacingY;
 
         // 1. Draw dashed outer circle
         ctx.save();
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1;
-        ctx.setLineDash([4, 2]); // Dash pattern: 4px line, 2px gap
+        ctx.setLineDash([4, 2]);
         ctx.beginPath();
         ctx.arc(x + outerDiaPx / 2, y + outerDiaPx / 2, outerDiaPx / 2, 0, Math.PI * 2);
         ctx.stroke();
@@ -197,7 +230,6 @@ const generateLayout = () => {
         ctx.beginPath();
         ctx.arc(x + outerDiaPx / 2, y + outerDiaPx / 2, innerDiaPx / 2, 0, Math.PI * 2);
         ctx.clip();
-        // Draw the image centered within the outer circle area
         ctx.drawImage(img, x + (outerDiaPx - innerDiaPx) / 2, y + (outerDiaPx - innerDiaPx) / 2, innerDiaPx, innerDiaPx);
         ctx.restore();
       }
@@ -210,13 +242,8 @@ const printLayout = () => {
   const canvas = a4Canvas.value;
   if (canvas && canvas.width > 1 && canvas.height > 1) {
     const printableImgEl = printableImage.value;
-    
-    printableImgEl.onload = () => {
-      window.print();
-    };
-    
+    printableImgEl.onload = () => window.print();
     printableImgEl.src = canvas.toDataURL('image/png');
-
   } else {
     alert('请先生成排版！');
   }
@@ -226,25 +253,28 @@ const printLayout = () => {
 
 <style>
 .a4-preview-container {
-  /* A4 aspect ratio */
   aspect-ratio: 210 / 297;
   width: 100%;
 }
-
 canvas {
   width: 100%;
   height: 100%;
 }
-
 .screen-hidden {
   position: absolute;
   top: -9999px;
   left: -9999px;
 }
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @media print {
   @page {
-    /* 隐藏浏览器默认的页眉和页脚 */
     margin: 0;
     size: A4;
   }
