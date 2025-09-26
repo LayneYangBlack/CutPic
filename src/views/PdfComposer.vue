@@ -11,26 +11,25 @@
     <!-- Step 2: Preview and Select Area -->
     <div v-show="isTemplateRendered" class="p-4 border rounded-lg bg-white shadow-sm">
         <h2 class="text-lg font-semibold mb-2">2. 在模板上选择条码位置</h2>
-        <p class="text-sm text-gray-500 mb-2">请用鼠标在下方预览图上拖拽出一个矩形区域。</p>
+        <p class="text-sm text-gray-500 mb-2">请用鼠标在下方预览图上拖拽出一个矩形区域，可拖动和缩放。</p>
         <div class="pdf-preview-container bg-gray-100 shadow-inner rounded" style="display: grid; place-items: center;">
             <canvas ref="templateCanvas" style="grid-column: 1; grid-row: 1; z-index: 1;"></canvas>
             <canvas 
                 ref="selectionCanvas"
-                style="grid-column: 1; grid-row: 1; z-index: 2;"
-                class="cursor-crosshair"
+                style="grid-column: 1; grid-row: 1; z-index: 2; cursor: crosshair;"
                 @mousedown="onMouseDown"
                 @mousemove="onMouseMove"
                 @mouseup="onMouseUp"
                 @mouseleave="onMouseUp"
             ></canvas>
         </div>
-        <div v-if="selectionRect.width" class="mt-2 text-sm text-center text-gray-600">
+        <div v-if="selectionRect.width > 0" class="mt-2 text-sm text-center text-gray-600">
             已选择区域: (x: {{ selectionRect.x.toFixed(0) }}, y: {{ selectionRect.y.toFixed(0) }}) - (宽: {{ selectionRect.width.toFixed(0) }}, 高: {{ selectionRect.height.toFixed(0) }})
         </div>
     </div>
 
     <!-- Step 3: Upload Barcode -->
-    <div v-if="selectionRect.width" class="p-4 border rounded-lg bg-white shadow-sm">
+    <div v-if="selectionRect.width > 0" class="p-4 border rounded-lg bg-white shadow-sm">
         <h2 class="text-lg font-semibold mb-2">3. 上传条码文件 (可多选)</h2>
         <input type="file" @change="handleBarcodeUpload" accept=".pdf,image/*" multiple class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
         <div v-if="barcodeFiles.length" class="mt-4">
@@ -51,7 +50,7 @@
         </button>
     </div>
 
-    <!-- Preview Modal -->
+    <!-- Preview Modal (no changes) -->
     <div v-if="showPreviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg shadow-2xl w-11/12 md:w-3/4 lg:w-1/2 max-h-[90vh] flex flex-col">
         <div class="flex justify-between items-center p-4 border-b">
@@ -72,18 +71,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted } from 'vue';
+import { ref, reactive, onUnmounted, watch } from 'vue';
 
 // --- State ---
 const templateCanvas = ref(null);
 const selectionCanvas = ref(null);
 const isTemplateRendered = ref(false);
-const pdfPage = ref(null);
 const templateFile = ref(null);
 
-const isDrawing = ref(false);
-const startPos = reactive({ x: 0, y: 0 });
-const selectionRect = reactive({ x: 0, y: 0, width: 0, height: 0 });
+const selectionRect = reactive({ x: 0, y: 0, width: 0, height: 0, visible: false });
+const interaction = reactive({
+  mode: 'none', // 'none', 'drawing', 'moving', 'resizing'
+  activeHandle: null,
+  startPos: { x: 0, y: 0 },
+  startRect: {},
+});
+const HANDLE_SIZE = 8;
 
 const barcodeFiles = ref([]);
 const isComposing = ref(false);
@@ -93,11 +96,178 @@ const showPreviewModal = ref(false);
 const previewPdfUrl = ref('');
 const previewIframe = ref(null);
 
+// --- Watchers ---
+watch(selectionRect, redrawSelectionCanvas, { deep: true });
+
+// --- Interactive Selection Box Logic ---
+function getHandles(rect) {
+  if (!rect.visible) return [];
+  const { x, y, width, height } = rect;
+  return {
+    topLeft: { x, y },
+    top: { x: x + width / 2, y },
+    topRight: { x: x + width, y },
+    left: { x, y: y + height / 2 },
+    right: { x: x + width, y: y + height / 2 },
+    bottomLeft: { x, y: y + height },
+    bottom: { x: x + width / 2, y: y + height },
+    bottomRight: { x: x + width, y: y + height },
+  };
+}
+
+function redrawSelectionCanvas() {
+  const canvas = selectionCanvas.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!selectionRect.visible || selectionRect.width === 0) return;
+
+  const { x, y, width, height } = selectionRect;
+  ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = 'red';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, width, height);
+
+  ctx.fillStyle = 'red';
+  const handles = getHandles(selectionRect);
+  for (const key in handles) {
+    const handle = handles[key];
+    ctx.fillRect(handle.x - HANDLE_SIZE / 2, handle.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+  }
+}
+
+function getHandleAtPos(posX, posY) {
+  const handles = getHandles(selectionRect);
+  for (const key in handles) {
+    const handle = handles[key];
+    if (posX >= handle.x - HANDLE_SIZE / 2 && posX <= handle.x + HANDLE_SIZE / 2 &&
+        posY >= handle.y - HANDLE_SIZE / 2 && posY <= handle.y + HANDLE_SIZE / 2) {
+      return key;
+    }
+  }
+  return null;
+}
+
+function isPointInRect(posX, posY, rect) {
+  return rect.visible && posX >= rect.x && posX <= rect.x + rect.width && posY >= rect.y && posY <= rect.y + rect.height;
+}
+
+function getCursorStyle(handle) {
+  if (['topLeft', 'bottomRight'].includes(handle)) return 'nwse-resize';
+  if (['topRight', 'bottomLeft'].includes(handle)) return 'nesw-resize';
+  if (['top', 'bottom'].includes(handle)) return 'ns-resize';
+  if (['left', 'right'].includes(handle)) return 'ew-resize';
+  return 'move';
+}
+
+const onMouseDown = (e) => {
+  const { offsetX, offsetY } = e;
+  interaction.startPos = { x: offsetX, y: offsetY };
+  interaction.startRect = JSON.parse(JSON.stringify(selectionRect));
+
+  const handle = getHandleAtPos(offsetX, offsetY);
+  if (handle) {
+    interaction.mode = 'resizing';
+    interaction.activeHandle = handle;
+  } else if (isPointInRect(offsetX, offsetY, selectionRect)) {
+    interaction.mode = 'moving';
+  } else {
+    interaction.mode = 'drawing';
+    selectionRect.x = offsetX;
+    selectionRect.y = offsetY;
+    selectionRect.width = 0;
+    selectionRect.height = 0;
+    selectionRect.visible = true;
+  }
+};
+
+const onMouseMove = (e) => {
+  const { offsetX, offsetY } = e;
+  const dx = offsetX - interaction.startPos.x;
+  const dy = offsetY - interaction.startPos.y;
+
+  if (interaction.mode === 'none') {
+    const handle = getHandleAtPos(offsetX, offsetY);
+    if (handle) {
+      selectionCanvas.value.style.cursor = getCursorStyle(handle);
+    } else if (isPointInRect(offsetX, offsetY, selectionRect)) {
+      selectionCanvas.value.style.cursor = 'move';
+    } else {
+      selectionCanvas.value.style.cursor = 'crosshair';
+    }
+    return;
+  }
+
+  if (interaction.mode === 'drawing') {
+    selectionRect.width = dx;
+    selectionRect.height = dy;
+  } else if (interaction.mode === 'moving') {
+    selectionRect.x = interaction.startRect.x + dx;
+    selectionRect.y = interaction.startRect.y + dy;
+  } else if (interaction.mode === 'resizing') {
+    const { x, y, width, height } = interaction.startRect;
+    switch (interaction.activeHandle) {
+      case 'topLeft':
+        selectionRect.x = x + dx;
+        selectionRect.y = y + dy;
+        selectionRect.width = width - dx;
+        selectionRect.height = height - dy;
+        break;
+      case 'top':
+        selectionRect.y = y + dy;
+        selectionRect.height = height - dy;
+        break;
+      case 'topRight':
+        selectionRect.y = y + dy;
+        selectionRect.width = width + dx;
+        selectionRect.height = height - dy;
+        break;
+      case 'left':
+        selectionRect.x = x + dx;
+        selectionRect.width = width - dx;
+        break;
+      case 'right':
+        selectionRect.width = width + dx;
+        break;
+      case 'bottomLeft':
+        selectionRect.x = x + dx;
+        selectionRect.width = width - dx;
+        selectionRect.height = height + dy;
+        break;
+      case 'bottom':
+        selectionRect.height = height + dy;
+        break;
+      case 'bottomRight':
+        selectionRect.width = width + dx;
+        selectionRect.height = height + dy;
+        break;
+    }
+  }
+};
+
+const onMouseUp = () => {
+  if (interaction.mode === 'drawing' || interaction.mode === 'resizing') {
+    if (selectionRect.width < 0) {
+      selectionRect.x += selectionRect.width;
+      selectionRect.width *= -1;
+    }
+    if (selectionRect.height < 0) {
+      selectionRect.y += selectionRect.height;
+      selectionRect.height *= -1;
+    }
+  }
+  interaction.mode = 'none';
+  interaction.activeHandle = null;
+};
+
 // --- PDF Template Handling ---
 const handleTemplateUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   templateFile.value = file;
+  selectionRect.visible = false;
   selectionRect.width = 0;
   barcodeFiles.value = [];
 
@@ -106,13 +276,11 @@ const handleTemplateUpload = async (event) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const page = await pdf.getPage(1);
-    pdfPage.value = page;
 
     const viewport = page.getViewport({ scale: 1.5 });
     const canvas = templateCanvas.value;
     const selCanvas = selectionCanvas.value;
-    const context = canvas.getContext('2d');
-
+    
     [canvas, selCanvas].forEach(c => {
         c.height = viewport.height;
         c.width = viewport.width;
@@ -120,50 +288,23 @@ const handleTemplateUpload = async (event) => {
         c.style.height = viewport.height + 'px';
     });
 
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
     isTemplateRendered.value = true;
+
+    // Add a default 50x50 selection box in the center to guide the user
+    selectionRect.width = 50;
+    selectionRect.height = 50;
+    selectionRect.x = (selCanvas.width - selectionRect.width) / 2;
+    selectionRect.y = (selCanvas.height - selectionRect.height) / 2;
+    selectionRect.visible = true;
+
   } catch (error) {
     console.error('Error rendering PDF template:', error);
     alert(`渲染PDF模板时出错: ${error.message}`);
   }
 };
 
-// --- Selection Area Drawing ---
-const onMouseDown = (e) => {
-    if (!isTemplateRendered.value) return;
-    isDrawing.value = true;
-    startPos.x = e.offsetX;
-    startPos.y = e.offsetY;
-    selectionRect.x = e.offsetX;
-    selectionRect.y = e.offsetY;
-    selectionRect.width = 0;
-    selectionRect.height = 0;
-};
-
-const onMouseMove = (e) => {
-    if (!isDrawing.value) return;
-    const canvas = selectionCanvas.value;
-    const context = canvas.getContext('2d');
-    const width = e.offsetX - startPos.x;
-    const height = e.offsetY - startPos.y;
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = 'rgba(255, 0, 0, 0.2)';
-    context.fillRect(startPos.x, startPos.y, width, height);
-    context.strokeStyle = 'red';
-    context.lineWidth = 2;
-    context.strokeRect(startPos.x, startPos.y, width, height);
-
-    selectionRect.x = startPos.x;
-    selectionRect.y = startPos.y;
-    selectionRect.width = width;
-    selectionRect.height = height;
-};
-
-const onMouseUp = () => {
-    isDrawing.value = false;
-};
-
+// --- The rest of the logic (barcode upload, composition, etc.) remains the same ---
 // --- Barcode File Handling ---
 const handleBarcodeUpload = async (event) => {
     const files = event.target.files;
@@ -291,7 +432,6 @@ const composeBatchZip = async () => {
             const barcode = barcodeFiles.value[i];
             composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcode.name}`;
             
-            // Load a fresh template for each file
             const pdfDoc = await PDFDocument.load(templateBytes);
             await createPdfPage(pdfDoc, barcode.src);
             const pdfBytes = await pdfDoc.save();
