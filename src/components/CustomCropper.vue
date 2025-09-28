@@ -140,8 +140,8 @@ const handleZoom = (newZoomValue, clientX, clientY) => {
     }
 
     const canvasRect = canvas.value.getBoundingClientRect();
-    const zoomCenterX = clientX ? clientX - canvasRect.left : canvas.value.width / 2;
-    const zoomCenterY = clientY ? clientY - canvasRect.top : canvas.value.height / 2;
+    const zoomCenterX = clientX != null ? clientX - canvasRect.left : canvas.value.width / 2;
+    const zoomCenterY = clientY != null ? clientY - canvasRect.top : canvas.value.height / 2;
 
     const imgPoint = {
         x: (zoomCenterX - offset.value.x) / oldZoom,
@@ -169,7 +169,7 @@ const zoomOut = () => {
 }
 
 const onWheel = (e) => {
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const zoomFactor = e.deltaY < 0 ? 1.02 : 1 / 1.02;
     handleZoom(zoom.value * zoomFactor, e.clientX, e.clientY);
 }
 
