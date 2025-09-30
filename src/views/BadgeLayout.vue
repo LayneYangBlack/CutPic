@@ -94,7 +94,7 @@ import CustomCropper from '../components/CustomCropper.vue';
 // --- State ---
 const layoutMode = ref('manual'); // 'manual' or 'auto'
 const sizeMap = {
-  25: 32, 32: 44, 37: 49, 44: 54, 50: 61, 56: 66, 58: 70, 65: 76, 75: 86,
+  25: 35, 32: 44, 37: 49, 44: 54, 50: 61, 56: 66, 58: 70, 65: 76, 75: 86,
 };
 const selectedSize = ref(58);
 const printQuantity = ref(null);
