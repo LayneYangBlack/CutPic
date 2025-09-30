@@ -8,18 +8,23 @@
       <div class="p-4 border rounded-lg bg-white shadow-sm">
         <h2 class="text-lg font-semibold mb-4">1. 输入设置</h2>
 
-        <!-- Mode Tabs -->
-        <div class="flex border-b mb-4">
-          <button @click="layoutMode = 'manual'" :class="{'border-blue-500 text-blue-600': layoutMode === 'manual', 'border-transparent text-gray-500': layoutMode !== 'manual'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">手动模式</button>
-          <button @click="layoutMode = 'auto'" :class="{'border-blue-500 text-blue-600': layoutMode === 'auto', 'border-transparent text-gray-500': layoutMode !== 'auto'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">自动模式</button>
-        </div>
-
         <div class="space-y-4">
           <div>
             <label for="size-select" class="block text-sm font-medium text-gray-700">选择尺寸 (图片直径)</label>
             <select id="size-select" v-model="selectedSize" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
               <option v-for="(outer, inner) in sizeMap" :key="inner" :value="inner">{{ inner }}mm (外圈 {{ outer }}mm)</option>
             </select>
+          </div>
+
+          <div>
+            <label for="print-quantity" class="block text-sm font-medium text-gray-700">打印数量 (可选)</label>
+            <input type="number" id="print-quantity" v-model.number="printQuantity" placeholder="留空则打印整页" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+          </div>
+
+          <!-- Mode Tabs -->
+          <div class="flex border-b pt-2">
+            <button @click="layoutMode = 'manual'" :class="{'border-blue-500 text-blue-600': layoutMode === 'manual', 'border-transparent text-gray-500': layoutMode !== 'manual'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">手动模式</button>
+            <button @click="layoutMode = 'auto'" :class="{'border-blue-500 text-blue-600': layoutMode === 'auto', 'border-transparent text-gray-500': layoutMode !== 'auto'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">自动模式</button>
           </div>
           
           <div v-if="layoutMode === 'manual'" class="space-y-4 animate-fade-in">
@@ -92,6 +97,7 @@ const sizeMap = {
   25: 32, 32: 44, 37: 49, 44: 54, 50: 61, 56: 66, 58: 70, 65: 76, 75: 86,
 };
 const selectedSize = ref(58);
+const printQuantity = ref(null);
 const gapH = ref(2);
 const gapV = ref(2);
 const imageSrc = ref(null);
@@ -146,8 +152,18 @@ const generateLayout = () => {
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // --- Add text label for the specification ---
   const innerDiameterMM = selectedSize.value;
   const outerDiameterMM = sizeMap[innerDiameterMM];
+  ctx.save();
+  ctx.fillStyle = 'black';
+  ctx.font = '28px Arial'; // Font size in pixels
+  const labelText = `规格: ${innerDiameterMM}mm`; // Simplified label
+  const textMarginPx = mmToPx(3); // 3mm margin from edge
+  ctx.fillText(labelText, textMarginPx, textMarginPx + 28); // Y-coordinate is margin + font size
+  ctx.restore();
+  // --- End of text label ---
+
   const innerDiaPx = mmToPx(innerDiameterMM);
   const outerDiaPx = mmToPx(outerDiameterMM);
 
@@ -155,63 +171,46 @@ const generateLayout = () => {
 
   if (layoutMode.value === 'auto') {
     // --- AUTO MODE LOGIC ---
-    // For smaller sizes, use a larger minimum gap to avoid being too compact.
     const minGapMM = selectedSize.value <= 32 ? 4 : 2;
     const minGapPx = mmToPx(minGapMM);
-    
     cols = Math.floor((canvas.width + minGapPx) / (outerDiaPx + minGapPx));
     rows = Math.floor((canvas.height + minGapPx) / (outerDiaPx + minGapPx));
-
-    if (cols === 0 || rows === 0) {
-      alert('徽章尺寸过大，无法在A4纸上进行排版！');
-      return;
-    }
-
+    if (cols === 0 || rows === 0) { alert('徽章尺寸过大，无法在A4纸上进行排版！'); return; }
     const totalBadgesWidth = cols * outerDiaPx;
     const remainingWidth = canvas.width - totalBadgesWidth;
     const horizontalGap = remainingWidth / (cols + 1);
-
     const totalBadgesHeight = rows * outerDiaPx;
     const remainingHeight = canvas.height - totalBadgesHeight;
     const verticalGap = remainingHeight / (rows + 1);
-
     startX = horizontalGap;
     startY = verticalGap;
     itemSpacingX = outerDiaPx + horizontalGap;
     itemSpacingY = outerDiaPx + verticalGap;
-
   } else {
     // --- MANUAL MODE LOGIC ---
     const marginTopMM = 15, marginLeftMM = 12, marginRightMM = 12, marginBottomMM = 15;
-    const marginTopPx = mmToPx(marginTopMM);
-    const marginLeftPx = mmToPx(marginLeftMM);
-    const marginRightPx = mmToPx(marginRightMM);
-    const marginBottomPx = mmToPx(marginBottomMM);
-    const gapHPx = mmToPx(gapH.value);
-    const gapVPx = mmToPx(gapV.value);
-
+    const marginTopPx = mmToPx(marginTopMM), marginLeftPx = mmToPx(marginLeftMM), marginRightPx = mmToPx(marginRightMM), marginBottomPx = mmToPx(marginBottomMM);
+    const gapHPx = mmToPx(gapH.value), gapVPx = mmToPx(gapV.value);
     const effectiveWidth = canvas.width - marginLeftPx - marginRightPx;
     const effectiveHeight = canvas.height - marginTopPx - marginBottomPx;
-
     itemSpacingX = outerDiaPx + gapHPx;
     itemSpacingY = outerDiaPx + gapVPx;
-
     cols = Math.floor((effectiveWidth + gapHPx) / itemSpacingX);
     rows = Math.floor((effectiveHeight + gapVPx) / itemSpacingY);
-    
-    if (cols === 0 || rows === 0) {
-      alert('徽章尺寸过大，无法在A4纸上进行排版！');
-      return;
-    }
-
+    if (cols === 0 || rows === 0) { alert('徽章尺寸过大，无法在A4纸上进行排版！'); return; }
     startX = marginLeftPx;
     startY = marginTopPx;
   }
 
   const img = new Image();
   img.onload = () => {
+    let drawnCount = 0;
+    const maxToDraw = (printQuantity.value && printQuantity.value > 0) ? printQuantity.value : (rows * cols);
+
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
+        if (drawnCount >= maxToDraw) break;
+
         const x = startX + c * itemSpacingX;
         const y = startY + r * itemSpacingY;
 
@@ -232,7 +231,10 @@ const generateLayout = () => {
         ctx.clip();
         ctx.drawImage(img, x + (outerDiaPx - innerDiaPx) / 2, y + (outerDiaPx - innerDiaPx) / 2, innerDiaPx, innerDiaPx);
         ctx.restore();
+        
+        drawnCount++;
       }
+      if (drawnCount >= maxToDraw) break;
     }
   };
   img.src = croppedImageSrc.value;
