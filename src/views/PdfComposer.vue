@@ -49,10 +49,22 @@
             <input type="text" id="custom-filename" v-model.trim="customFilename" placeholder="单文件模式下为完整文件名(不带后缀)" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
         </div>
 
-        <button @click="startComposition" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg mt-4" :disabled="isComposing">
-            <span v-if="isComposing">{{ composingProgress }}</span>
-            <span v-else>{{ barcodeFiles.length > 1 ? '批量合成并下载 ZIP' : '合成并预览' }}</span>
-        </button>
+        <div class="mt-4 flex justify-center items-center gap-4">
+            <button @click="startComposition" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg" :disabled="isComposing" v-if="barcodeFiles.length === 1">
+                <span v-if="isComposing">{{ composingProgress }}</span>
+                <span v-else>合成并预览</span>
+            </button>
+            <template v-if="barcodeFiles.length > 1">
+                <button @click="composeBatchZip" class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-base font-bold shadow-lg" :disabled="isComposing">
+                    <span v-if="isComposing">{{ composingProgress }}</span>
+                    <span v-else>批量合成并下载 ZIP</span>
+                </button>
+                <button @click="composeBatchPdf" class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 text-base font-bold shadow-lg" :disabled="isComposing">
+                    <span v-if="isComposing">{{ composingProgress }}</span>
+                    <span v-else>批量合成并预览</span>
+                </button>
+            </template>
+        </div>
     </div>
 
     <!-- Preview Modal -->
@@ -265,7 +277,7 @@ const getBarcodeAsPngBytes = async (file) => {
 const startComposition = async () => {
     if (!templateFile.value || !barcodeFiles.value.length || !selectionRect.width) { alert('请先完成所有步骤！'); return; }
     if (barcodeFiles.value.length === 1) await composeSinglePdf();
-    else await composeBatchZip();
+    // For multiple files, buttons call composeBatchZip or composeBatchPdf directly
 };
 
 async function createPdfPage(pdfDoc, barcodeFile) {
@@ -298,6 +310,7 @@ const composeSinglePdf = async () => {
 };
 
 const composeBatchZip = async () => {
+    if (!templateFile.value || !barcodeFiles.value.length || !selectionRect.width) { alert('请先完成所有步骤！'); return; }
     isComposing.value = true;
     try {
         const { PDFDocument } = window.PDFLib;
@@ -329,6 +342,56 @@ const composeBatchZip = async () => {
     } finally { isComposing.value = false; composingProgress.value = ''; }
 };
 
+const composeBatchPdf = async () => {
+    if (!templateFile.value || !barcodeFiles.value.length || !selectionRect.width) { alert('请先完成所有步骤！'); return; }
+    isComposing.value = true;
+    try {
+        const { PDFDocument } = window.PDFLib;
+        const finalPdfDoc = await PDFDocument.create();
+        const templateBytes = await templateFile.value.arrayBuffer();
+
+        // Get viewport info using a sliced buffer, so templateBytes is not detached.
+        const viewport = await window.pdfjsLib.getDocument({ data: templateBytes.slice(0) }).promise.then(pdf => pdf.getPage(1)).then(p => p.getViewport({ scale: 1.5 }));
+
+        for (let i = 0; i < barcodeFiles.value.length; i++) {
+            const barcodeFile = barcodeFiles.value[i];
+            composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcodeFile.name}`;
+            
+            // Use a sliced buffer for pdf-lib as well to avoid detaching.
+            const templatePdfDoc = await PDFDocument.load(templateBytes.slice(0));
+            const [templatePage] = await finalPdfDoc.copyPages(templatePdfDoc, [0]);
+            finalPdfDoc.addPage(templatePage);
+
+            const barcodeBytes = await getBarcodeAsPngBytes(barcodeFile);
+            if (!barcodeBytes) {
+                console.warn(`Skipping unsupported file type: ${barcodeFile.name}`);
+                continue;
+            }
+            
+            const barcodeImageEmbed = await finalPdfDoc.embedPng(barcodeBytes);
+            
+            const { width, height } = templatePage.getSize();
+            const scale = height / viewport.height;
+            const pdfX = selectionRect.x * scale;
+            const pdfY = height - (selectionRect.y * scale) - (selectionRect.height * scale);
+            const pdfWidth = selectionRect.width * scale;
+            const pdfHeight = selectionRect.height * scale;
+            
+            templatePage.drawImage(barcodeImageEmbed, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
+        }
+
+        composingProgress.value = '正在生成PDF...';
+        const pdfBytes = await finalPdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        if (previewPdfUrl.value) URL.revokeObjectURL(previewPdfUrl.value);
+        previewPdfUrl.value = URL.createObjectURL(blob);
+        showPreviewModal.value = true;
+
+    } catch (error) { console.error('Error composing batch PDF:', error); alert(`批量合成时出错: ${error.message}`);
+    } finally { isComposing.value = false; composingProgress.value = ''; }
+};
+
+
 // --- Modal and Download/Print Logic ---
 const closePreview = () => { showPreviewModal.value = false; };
 const downloadPdf = () => {
@@ -339,8 +402,12 @@ const downloadPdf = () => {
     if (customFilename.value) {
         link.download = `${customFilename.value}.pdf`;
     } else {
-        const originalName = barcodeFiles.value[0].name.replace(/\.[^/.]+$/, '');
-        link.download = `${originalName}${getFormattedTimestamp()}.pdf`;
+        if (barcodeFiles.value.length > 1) {
+            link.download = `批量合成结果${getFormattedTimestamp()}.pdf`;
+        } else {
+            const originalName = barcodeFiles.value[0].name.replace(/\.[^/.]+$/, '');
+            link.download = `${originalName}${getFormattedTimestamp()}.pdf`;
+        }
     }
 
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
