@@ -35,7 +35,7 @@
         <div v-if="barcodeFiles.length" class="mt-4">
             <h3 class="text-md font-semibold">已选择文件 ({{ barcodeFiles.length }}):</h3>
             <ul class="list-disc list-inside max-h-40 overflow-y-auto mt-2 text-sm text-gray-600">
-                <li v-for="file in barcodeFiles" :key="file.name">{{ file.name }}</li>
+                <li v-for="(file, index) in barcodeFiles" :key="index">{{ file.name }}</li>
             </ul>
         </div>
     </div>
@@ -239,8 +239,47 @@ const handleTemplateUpload = async (event) => {
 };
 
 // --- Barcode File Handling ---
-const handleBarcodeUpload = (event) => {
-    barcodeFiles.value = Array.from(event.target.files || []);
+const handleBarcodeUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) {
+        barcodeFiles.value = [];
+        return;
+    }
+
+    isComposing.value = true;
+    composingProgress.value = '正在处理上传文件...';
+    const newBarcodeSources = [];
+
+    try {
+        const pdfjsLib = await window.pdfjsLibPromise;
+        for (const file of files) {
+            if (file.type === 'application/pdf') {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                // If it's a multi-page PDF, treat each page as a source
+                if (pdf.numPages > 1) {
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        newBarcodeSources.push({ file, page: i, name: `${file.name} (第 ${i} 页)` });
+                    }
+                } else {
+                    // Single-page PDF, treat as one source
+                    newBarcodeSources.push({ file, page: 1, name: file.name });
+                }
+            } else if (file.type.startsWith('image/')) {
+                newBarcodeSources.push({ file, name: file.name });
+            } else {
+                console.warn(`Skipping unsupported file type: ${file.name}`);
+            }
+        }
+        barcodeFiles.value = newBarcodeSources;
+    } catch (error) {
+        console.error('Error processing uploaded files:', error);
+        alert(`处理上传文件时出错: ${error.message}`);
+        barcodeFiles.value = [];
+    } finally {
+        isComposing.value = false;
+        composingProgress.value = '';
+    }
 };
 
 // --- Helper Functions ---
@@ -255,12 +294,13 @@ const getFormattedTimestamp = () => {
   return `_${YYYY}${MM}${DD}_${hh}${mm}${ss}`;
 };
 
-const getBarcodeAsPngBytes = async (file) => {
+const getBarcodeAsPngBytes = async (barcodeSource) => {
+    const { file, page: pageNum } = barcodeSource;
     if (file.type === 'application/pdf') {
         const pdfjsLib = await window.pdfjsLibPromise;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const page = await pdf.getPage(1);
+        const page = await pdf.getPage(pageNum || 1);
         const viewport = page.getViewport({ scale: 2.0 });
         const canvas = document.createElement('canvas');
         canvas.height = viewport.height;
@@ -280,9 +320,9 @@ const startComposition = async () => {
     // For multiple files, buttons call composeBatchZip or composeBatchPdf directly
 };
 
-async function createPdfPage(pdfDoc, barcodeFile) {
-    const barcodeBytes = await getBarcodeAsPngBytes(barcodeFile);
-    if (!barcodeBytes) throw new Error(`不支持的文件类型: ${barcodeFile.name}`);
+async function createPdfPage(pdfDoc, barcodeSource) {
+    const barcodeBytes = await getBarcodeAsPngBytes(barcodeSource);
+    if (!barcodeBytes) throw new Error(`不支持的文件类型: ${barcodeSource.name}`);
     
     const barcodeImageEmbed = await pdfDoc.embedPng(barcodeBytes);
     const templatePage = pdfDoc.getPages()[0];
@@ -317,12 +357,12 @@ const composeBatchZip = async () => {
         const zip = new window.JSZip();
         const templateBytes = await templateFile.value.arrayBuffer();
         for (let i = 0; i < barcodeFiles.value.length; i++) {
-            const barcodeFile = barcodeFiles.value[i];
-            composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcodeFile.name}`;
+            const barcodeSource = barcodeFiles.value[i];
+            composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcodeSource.name}`;
             const pdfDoc = await PDFDocument.load(templateBytes);
-            await createPdfPage(pdfDoc, barcodeFile);
+            await createPdfPage(pdfDoc, barcodeSource);
             const pdfBytes = await pdfDoc.save();
-            const baseName = barcodeFile.name.replace(/\.[^/.]+$/, '');
+            const baseName = barcodeSource.name.replace(/\.[^/.]+$/, '');
             zip.file(`${baseName}_result.pdf`, pdfBytes);
         }
         composingProgress.value = '正在生成ZIP文件...';
@@ -354,17 +394,17 @@ const composeBatchPdf = async () => {
         const viewport = await window.pdfjsLib.getDocument({ data: templateBytes.slice(0) }).promise.then(pdf => pdf.getPage(1)).then(p => p.getViewport({ scale: 1.5 }));
 
         for (let i = 0; i < barcodeFiles.value.length; i++) {
-            const barcodeFile = barcodeFiles.value[i];
-            composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcodeFile.name}`;
+            const barcodeSource = barcodeFiles.value[i];
+            composingProgress.value = `正在合成 ${i + 1} / ${barcodeFiles.value.length}: ${barcodeSource.name}`;
             
             // Use a sliced buffer for pdf-lib as well to avoid detaching.
             const templatePdfDoc = await PDFDocument.load(templateBytes.slice(0));
             const [templatePage] = await finalPdfDoc.copyPages(templatePdfDoc, [0]);
             finalPdfDoc.addPage(templatePage);
 
-            const barcodeBytes = await getBarcodeAsPngBytes(barcodeFile);
+            const barcodeBytes = await getBarcodeAsPngBytes(barcodeSource);
             if (!barcodeBytes) {
-                console.warn(`Skipping unsupported file type: ${barcodeFile.name}`);
+                console.warn(`Skipping unsupported file type: ${barcodeSource.name}`);
                 continue;
             }
             
