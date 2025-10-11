@@ -36,6 +36,13 @@
         <h2 class="text-xl font-semibold">一键抠图</h2>
         <p class="text-gray-500 dark:text-gray-400 mt-2">自动移除图片背景</p>
       </router-link>
+
+      <!-- 规格图生成工具 -->
+      <router-link to="/spec-generator" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6M9 17h6M9 9h3"></path></svg>
+        <h2 class="text-xl font-semibold">规格图生成</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">批量生成带文字的规格图</p>
+      </router-link>
     </div>
   </div>
 </template>

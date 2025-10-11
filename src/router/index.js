@@ -5,6 +5,7 @@ import Home from '../views/Home.vue'
 import BadgeLayout from '../views/BadgeLayout.vue'
 import PdfComposer from '../views/PdfComposer.vue'
 import BackgroundRemoval from '../views/BackgroundRemoval.vue';
+import SpecGenerator from '../views/SpecGenerator.vue';
 
 const routes = [
   {
@@ -36,6 +37,11 @@ const routes = [
     path: '/remove-background',
     name: 'BackgroundRemoval',
     component: BackgroundRemoval
+  },
+  {
+    path: '/spec-generator',
+    name: 'SpecGenerator',
+    component: SpecGenerator
   }
 ]
 

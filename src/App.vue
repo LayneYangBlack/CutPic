@@ -14,6 +14,7 @@
         <div class="flex gap-4">
           <router-link to="/cutpic" class="text-blue-500 hover:underline">图片裁剪</router-link>
           <router-link to="/inpaint" class="text-blue-500 hover:underline">图片消除</router-link>
+          <router-link to="/spec-generator" class="text-blue-500 hover:underline">规格图生成</router-link>
         </div>
       </nav>
     </header>
