@@ -21,14 +21,15 @@
             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
           </svg>
           <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">点击上传</span> 或拖拽图片到此</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, WEBP 等格式</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400">支持多张图片 (PNG, JPG, WEBP)</p>
         </div>
-        <input id="dropzone-file" type="file" class="hidden" @change="handleImageUpload" accept="image/*" />
+        <input id="dropzone-file" type="file" class="hidden" @change="handleImageUpload" accept="image/*" multiple />
       </label>
     </div>
 
     <!-- 2. 修复工作区 -->
     <div v-else class="space-y-4">
+      <p class="text-center text-gray-600">在第一张图上绘制蒙版，该蒙版将应用于所有上传的图片。</p>
       <!-- 画布容器 -->
       <div class="relative mx-auto" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }">
         <canvas ref="imageCanvas" class="absolute top-0 left-0 border border-gray-300 rounded-lg"></canvas>
@@ -48,18 +49,32 @@
           <label for="brush-size" class="block mb-2 text-sm font-medium">笔刷大小: {{ brushSize }}px</label>
           <input id="brush-size" type="range" min="5" max="100" v-model="brushSize" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
         </div>
-        <div class="flex gap-4">
-          <button @click="downloadImage" class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">下载图片</button>
-          <button @click="reset" class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">重新上传</button>
+        
+        <!-- Batch Processing Progress -->
+        <div v-if="isBatchProcessing" class="space-y-2">
+            <p class="text-sm text-center text-blue-500">
+              正在批量处理: {{ (batchProgress * 100).toFixed(0) }}% ({{ Math.round(batchProgress * imageList.length) }} / {{ imageList.length }})
+            </p>
+            <div class="w-full bg-gray-200 rounded-full">
+                <div class="bg-blue-500 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full" :style="{ width: (batchProgress * 100) + '%' }"></div>
+            </div>
         </div>
-        <p v-if="isProcessing" class="text-sm text-center text-blue-500">正在处理中，请稍候...</p>
+
+        <div class="flex gap-4">
+          <button @click="applyAndDownload" :disabled="isBatchProcessing || imageList.length === 0" class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400">
+            {{ isBatchProcessing ? '正在处理...' : '应用蒙版并下载ZIP' }}
+          </button>
+          <button @click="reset" class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+            全部重置
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, nextTick, computed } from 'vue';
 import inpaint, { initInpaintSession } from '../adapters/inpainting.js';
 
 // Model Loading State
@@ -71,14 +86,15 @@ const imageCanvas = ref(null);
 const drawingCanvas = ref(null);
 
 // 状态
-const imageLoaded = ref(false);
+const imageList = ref([]);
 const isDrawing = ref(false);
-const isProcessing = ref(false);
+const isBatchProcessing = ref(false);
+const batchProgress = ref(0);
 const brushSize = ref(40);
 const canvasWidth = ref(0);
 const canvasHeight = ref(0);
-let originalImage = null;
-let currentImage = null; // To store the image file/blob for iterative inpainting
+
+const imageLoaded = computed(() => imageList.value.length > 0);
 
 // Initialize model on component mount
 onMounted(() => {
@@ -94,68 +110,70 @@ onMounted(() => {
 
 // 图片上传处理
 const handleImageUpload = (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  imageList.value = Array.from(files).map((file, index) => ({
+    id: Date.now() + index,
+    file,
+    originalSrc: null,
+    processedSrc: null,
+    status: 'pending', // pending, processing, done, error
+  }));
+
+  // Load the first image to the canvas for mask drawing
+  loadFirstImageForMasking();
+};
+
+const loadFirstImageForMasking = () => {
+  const firstImageItem = imageList.value[0];
+  if (!firstImageItem) return;
 
   const reader = new FileReader();
   reader.onload = (event) => {
+    firstImageItem.originalSrc = event.target.result;
+    drawImageToCanvas(firstImageItem.originalSrc);
+  };
+  reader.readAsDataURL(firstImageItem.file);
+};
+
+const drawImageToCanvas = (imageSrc) => {
     const img = new Image();
     img.onload = () => {
-      // Sanitize the image by drawing it to a canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const sanitizedDataUrl = canvas.toDataURL('image/png');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let w = img.width;
+        let h = img.height;
 
-      originalImage = new Image();
-      originalImage.onload = () => {
-          // 限制最大尺寸
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
-          let w = originalImage.width;
-          let h = originalImage.height;
+        if (w > MAX_WIDTH) {
+          h = (h * MAX_WIDTH) / w;
+          w = MAX_WIDTH;
+        }
+        if (h > MAX_HEIGHT) {
+          w = (w * MAX_HEIGHT) / h;
+          h = MAX_HEIGHT;
+        }
 
-          if (w > MAX_WIDTH) {
-            h = (h * MAX_WIDTH) / w;
-            w = MAX_WIDTH;
-          }
-          if (h > MAX_HEIGHT) {
-            w = (w * MAX_HEIGHT) / h;
-            h = MAX_HEIGHT;
-          }
+        canvasWidth.value = Math.round(w);
+        canvasHeight.value = Math.round(h);
+        
+        nextTick(() => {
+          // Setup image canvas
+          imageCanvas.value.width = canvasWidth.value;
+          imageCanvas.value.height = canvasHeight.value;
+          const imgCtx = imageCanvas.value.getContext('2d');
+          imgCtx.drawImage(img, 0, 0, canvasWidth.value, canvasHeight.value);
 
-          canvasWidth.value = Math.round(w);
-          canvasHeight.value = Math.round(h);
-          
-          currentImage = originalImage; // Store the initial image
-          imageLoaded.value = true;
-
-          // 必须在下一个 tick 中更新 canvas，等待 DOM 更新
-          nextTick(() => {
-            setupCanvases();
-          });
-      };
-      originalImage.src = sanitizedDataUrl;
+          // Setup drawing canvas
+          drawingCanvas.value.width = canvasWidth.value;
+          drawingCanvas.value.height = canvasHeight.value;
+          const drawCtx = drawingCanvas.value.getContext('2d');
+          drawCtx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
+        });
     };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
+    img.src = imageSrc;
 };
 
-// 设置画布
-const setupCanvases = () => {
-  // 设置图片画布
-  imageCanvas.value.width = canvasWidth.value;
-  imageCanvas.value.height = canvasHeight.value;
-  const ctx = imageCanvas.value.getContext('2d');
-  ctx.drawImage(originalImage, 0, 0, canvasWidth.value, canvasHeight.value);
-
-  // 设置绘画画布
-  drawingCanvas.value.width = canvasWidth.value;
-  drawingCanvas.value.height = canvasHeight.value;
-};
 
 // 绘制逻辑
 let lastPos = null;
@@ -187,7 +205,7 @@ const stopDrawing = () => {
   if (!isDrawing.value) return;
   isDrawing.value = false;
   lastPos = null;
-  runInpainting();
+  // No longer runs inpainting automatically
 };
 
 // 获取鼠标在 canvas 中的位置
@@ -199,41 +217,102 @@ const getMousePos = (canvas, evt) => {
   };
 };
 
-// New inpainting function using the adapter
-const runInpainting = async () => {
-  isProcessing.value = true;
+// Batch Inpainting and Zipping
+const applyAndDownload = async () => {
+  if (imageList.value.length === 0) {
+    alert('请先上传图片。');
+    return;
+  }
+
+  const maskDataURL = drawingCanvas.value.toDataURL();
+  
+  // Check if mask is empty
+  const maskCanvas = document.createElement('canvas');
+  const maskCtx = maskCanvas.getContext('2d');
+  maskCanvas.width = drawingCanvas.value.width;
+  maskCanvas.height = drawingCanvas.value.height;
+  const maskImage = new Image();
+  maskImage.src = maskDataURL;
+  await new Promise(resolve => maskImage.onload = resolve);
+  maskCtx.drawImage(maskImage, 0, 0);
+  const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+  if (!maskData.data.some(channel => channel !== 0)) {
+      alert('请先在图片上绘制需要修复的区域。');
+      return;
+  }
+
+
+  isBatchProcessing.value = true;
+  batchProgress.value = 0;
+
   try {
-    const maskDataURL = drawingCanvas.value.toDataURL();
+    for (let i = 0; i < imageList.value.length; i++) {
+      const item = imageList.value[i];
+      item.status = 'processing';
 
-    const resultDataUrl = await inpaint(currentImage, maskDataURL);
+      // Ensure originalSrc is loaded
+      if (!item.originalSrc) {
+        item.originalSrc = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(item.file);
+        });
+      }
+      
+      const resultDataUrl = await inpaint(item.originalSrc, maskDataURL);
+      item.processedSrc = resultDataUrl;
+      item.status = 'done';
+      batchProgress.value = (i + 1) / imageList.value.length;
+    }
 
-    const resultImage = new Image();
-    resultImage.onload = () => {
-      currentImage = resultImage; // Update current image for next iteration
-      const ctx = imageCanvas.value.getContext('2d');
-      ctx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
-      ctx.drawImage(resultImage, 0, 0, canvasWidth.value, canvasHeight.value);
-
-      const drawingCtx = drawingCanvas.value.getContext('2d');
-      drawingCtx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
-    };
-    resultImage.src = resultDataUrl;
+    await downloadZip();
 
   } catch (error) {
-    console.error('Inpainting failed:', error);
-    alert(`处理失败: ${error.message}`);
+    console.error('Batch inpainting failed:', error);
+    alert(`批量处理失败: ${error.message}`);
+    const currentItem = imageList.value.find(item => item.status === 'processing');
+    if (currentItem) currentItem.status = 'error';
   } finally {
-    isProcessing.value = false;
+    isBatchProcessing.value = false;
   }
 };
 
+const downloadZip = async () => {
+    const processedImages = imageList.value.filter(item => item.status === 'done' && item.processedSrc);
+    if (processedImages.length === 0) {
+        alert('没有成功处理的图片可供下载。');
+        return;
+    }
+
+    const zip = new window.JSZip();
+    
+    for (const item of processedImages) {
+        const response = await fetch(item.processedSrc);
+        const blob = await response.blob();
+        // Ensure unique filenames if needed, here using original name
+        const fileName = `inpainted_${item.file.name}`;
+        zip.file(fileName, blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(zipBlob);
+    link.download = 'inpainted-images.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+};
+
+
 // 重置
 const reset = () => {
-  imageLoaded.value = false;
-  originalImage = null;
-  currentImage = null;
-  isProcessing.value = false;
-  // 清理画布
+  imageList.value = [];
+  isBatchProcessing.value = false;
+  batchProgress.value = 0;
+
   if (imageCanvas.value) {
     const imgCtx = imageCanvas.value.getContext('2d');
     imgCtx.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
@@ -244,14 +323,6 @@ const reset = () => {
   }
   canvasWidth.value = 0;
   canvasHeight.value = 0;
-};
-
-// 下载
-const downloadImage = () => {
-  const link = document.createElement('a');
-  link.download = 'inpainted-image.png';
-  link.href = imageCanvas.value.toDataURL('image/png');
-  link.click();
 };
 
 </script>

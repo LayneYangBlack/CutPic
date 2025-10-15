@@ -223,6 +223,8 @@ const batchList = ref([
   { text: '示例文字2' },
 ]);
 const isGenerating = ref(false);
+const idealWidth = ref(0);
+const idealHeight = ref(0);
 
 // --- Lifecycle Hooks ---
 onMounted(() => {
@@ -325,13 +327,33 @@ const handleImageLoaded = (file) => {
       const container = canvasEl.value.parentElement;
       if (!container) return;
 
-      const newWidth = container.clientWidth > 20 ? container.clientWidth - 20 : 800;
-      const imgRatio = fabricImg.width / fabricImg.height;
-      const newHeight = newWidth / imgRatio;
+      // Determine ideal dimensions based on "min 800px" rule
+      idealWidth.value = fabricImg.width;
+      idealHeight.value = fabricImg.height;
+      const minSide = Math.min(idealWidth.value, idealHeight.value);
 
-      fabricCanvas.setWidth(newWidth);
-      fabricCanvas.setHeight(newHeight);
-      fabricImg.scaleToWidth(newWidth);
+      if (minSide < 800) {
+        const scaleFactor = 800 / minSide;
+        idealWidth.value = Math.round(idealWidth.value * scaleFactor);
+        idealHeight.value = Math.round(idealHeight.value * scaleFactor);
+      }
+
+      // Get container width (with some padding)
+      const containerWidth = container.clientWidth > 20 ? container.clientWidth - 20 : container.clientWidth;
+
+      // Constrain dimensions if they overflow the container
+      let finalWidth = idealWidth.value;
+      let finalHeight = idealHeight.value;
+
+      if (finalWidth > containerWidth) {
+        finalWidth = containerWidth;
+        finalHeight = Math.round(finalWidth * (idealHeight.value / idealWidth.value));
+      }
+
+      // Set canvas and image size
+      fabricCanvas.setWidth(finalWidth);
+      fabricCanvas.setHeight(finalHeight);
+      fabricImg.scaleToWidth(finalWidth);
       fabricCanvas.backgroundImage = fabricImg;
       fabricCanvas.renderAll();
     };
@@ -374,13 +396,14 @@ const generateAndDownload = async () => {
   }
   isGenerating.value = true;
   try {
+    const multiplier = idealWidth.value > 0 ? idealWidth.value / fabricCanvas.getWidth() : 1;
     const zip = new JSZip();
     const originalText = textObject.text;
     for (let i = 0; i < batchList.value.length; i++) {
       const item = batchList.value[i];
       textObject.set('text', item.text);
       fabricCanvas.renderAll();
-      const dataUrl = fabricCanvas.toDataURL({ format: 'png' });
+      const dataUrl = fabricCanvas.toDataURL({ format: 'png', multiplier });
       const blob = dataURLtoBlob(dataUrl);
       zip.file(`规格图_${i + 1}.png`, blob);
     }
