@@ -6,6 +6,7 @@ import BadgeLayout from '../views/BadgeLayout.vue'
 import PdfComposer from '../views/PdfComposer.vue'
 import BackgroundRemoval from '../views/BackgroundRemoval.vue';
 import SpecGenerator from '../views/SpecGenerator.vue';
+import SpecStatistics from '../views/SpecStatistics.vue';
 
 const routes = [
   {
@@ -42,6 +43,11 @@ const routes = [
     path: '/spec-generator',
     name: 'SpecGenerator',
     component: SpecGenerator
+  },
+  {
+    path: '/spec-statistics',
+    name: 'SpecStatistics',
+    component: SpecStatistics
   }
 ]
 
