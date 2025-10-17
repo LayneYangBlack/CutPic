@@ -231,7 +231,11 @@ const handleTemplateUpload = async (event) => {
     [canvas, selCanvas].forEach(c => { c.height = viewport.height; c.width = viewport.width; c.style.width = `${viewport.width}px`; c.style.height = `${viewport.height}px`; });
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
     isTemplateRendered.value = true;
-    selectionRect.width = 50; selectionRect.height = 50; selectionRect.x = (selCanvas.width - 50) / 2; selectionRect.y = (selCanvas.height - 50) / 2; selectionRect.visible = true;
+    selectionRect.x = 18;
+    selectionRect.y = 487;
+    selectionRect.width = 448;
+    selectionRect.height = 105;
+    selectionRect.visible = true;
   } catch (error) {
     console.error('Error rendering PDF template:', error);
     alert(`渲染PDF模板时出错: ${error.message}`);
