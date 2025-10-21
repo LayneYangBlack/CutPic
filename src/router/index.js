@@ -2,11 +2,11 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import CutPic from '../views/CutPic.vue'
 import Inpaint from '../views/Inpaint.vue'
 import Home from '../views/Home.vue'
-import BadgeLayout from '../views/BadgeLayout.vue'
 import PdfComposer from '../views/PdfComposer.vue'
 import BackgroundRemoval from '../views/BackgroundRemoval.vue';
 import SpecGenerator from '../views/SpecGenerator.vue';
 import SpecStatistics from '../views/SpecStatistics.vue';
+import BadgePage from '../views/BadgePage.vue' // New import
 
 const routes = [
   {
@@ -26,8 +26,8 @@ const routes = [
   },
   {
     path: '/badge',
-    name: 'BadgeLayout',
-    component: BadgeLayout
+    name: 'BadgePage',
+    component: BadgePage
   },
   {
     path: '/pdf-composer',
@@ -48,7 +48,7 @@ const routes = [
     path: '/spec-statistics',
     name: 'SpecStatistics',
     component: SpecStatistics
-  }
+  },
 ]
 
 const router = createRouter({
