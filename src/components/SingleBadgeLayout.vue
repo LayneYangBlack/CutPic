@@ -68,6 +68,23 @@
         <img :src="croppedImageSrc" class="rounded-full mx-auto shadow-md" style="width: 128px; height: 128px;" alt="Cropped Image">
       </div>
 
+      <!-- New: Cropping History -->
+      <div v-if="cropHistory.length > 0" class="p-4 border rounded-lg bg-white shadow-sm">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-semibold">裁剪历史</h2>
+          <button @click="clearHistory" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm">清空历史</button>
+        </div>
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+          <div v-for="item in cropHistory" :key="item.id" class="relative group">
+            <img :src="item.croppedImageSrc" class="w-full h-auto rounded-full border-2 border-gray-300 group-hover:border-blue-500 cursor-pointer" @click="croppedImageSrc = item.croppedImageSrc; selectedSize = item.metadata.size;" :title="`裁剪于: ${new Date(item.timestamp).toLocaleString()} 尺寸: ${item.metadata.size}mm`">
+            <div class="text-center text-xs text-gray-600 mt-1">{{ item.metadata.size }}mm</div>
+            <button @click="removeCrop(item.id)" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              &times;
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Right Panel: A4 Preview -->
@@ -90,6 +107,7 @@
 <script setup>
 import { ref } from 'vue';
 import CustomCropper from './CustomCropper.vue';
+import { useCropHistory } from '../composables/useCropHistory.js'; // New import
 
 // --- State ---
 const layoutMode = ref('auto'); // 'manual' or 'auto'
@@ -105,6 +123,8 @@ const croppedImageSrc = ref(null);
 const a4Canvas = ref(null);
 const cropper = ref(null);
 const printableImage = ref(null);
+
+const { cropHistory, addCrop, removeCrop, clearHistory } = useCropHistory(); // Use composable
 
 // --- Methods ---
 const handleImageUpload = (event) => {
@@ -129,7 +149,9 @@ const handleImageUpload = (event) => {
 
 const confirmCrop = () => {
   if (cropper.value) {
-    croppedImageSrc.value = cropper.value.crop();
+    const croppedDataUrl = cropper.value.crop();
+    croppedImageSrc.value = croppedDataUrl;
+    // Removed: addCrop(croppedDataUrl, { size: selectedSize.value });
   }
 };
 
@@ -138,6 +160,8 @@ const generateLayout = () => {
     alert('请先确认裁切图片！');
     return;
   }
+  // New: Add to history when layout is generated
+  addCrop(croppedImageSrc.value, { size: selectedSize.value });
 
   const DPI = 300;
   const MM_PER_INCH = 25.4;

@@ -77,7 +77,7 @@
       </div>
 
       <!-- Cropper Section (conditional) -->
-      <div v-if="activeDesign" class="p-4 border rounded-lg bg-white shadow-sm">
+      <div v-if="activeDesign && !showHistorySelectionModal" class="p-4 border rounded-lg bg-white shadow-sm">
         <div class="flex justify-between items-center mb-2">
             <h2 class="text-lg font-semibold">裁切图案 #{{ activeDesign.id }}</h2>
             <div>
@@ -109,6 +109,39 @@
         <canvas ref="a4Canvas"></canvas>
       </div>
     </div>
+
+    <!-- History Selection Modal -->
+    <div v-if="showHistorySelectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center">
+      <div class="relative p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">选择裁剪图片</h3>
+        <div class="mt-2">
+          <p class="text-sm text-gray-500 mb-4">您可以选择从历史记录中加载，或者裁剪一张新图片。</p>
+          
+          <div class="flex justify-around mb-6">
+            <button @click="openNewCropper" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">裁剪新图片</button>
+          </div>
+
+          <div v-if="cropHistory.length > 0">
+            <h4 class="text-md font-medium text-gray-700 mb-2">裁剪历史</h4>
+            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3 max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
+              <div v-for="item in cropHistory" :key="item.id" class="relative group">
+                <img :src="item.croppedImageSrc" class="w-full h-auto rounded-full border-2 border-gray-300 group-hover:border-green-500 cursor-pointer" @click="selectFromHistory(item)" :title="`裁剪于: ${new Date(item.timestamp).toLocaleString()} 尺寸: ${item.metadata.size}mm`">
+                <div class="text-center text-xs text-gray-600 mt-1">{{ item.metadata.size }}mm</div>
+                <button @click="removeCrop(item.id)" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  &times;
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center text-gray-500 py-4">
+            暂无裁剪历史记录。
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button @click="cancelHistorySelection" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
   <img ref="printableImage" class="printable-area screen-hidden" alt="Printable Layout">
 </template>
@@ -116,6 +149,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import CustomCropper from './CustomCropper.vue';
+import { useCropHistory } from '../composables/useCropHistory.js'; // New import
 
 // --- State ---
 const layoutMode = ref('manual'); // 'manual' or 'auto'
@@ -130,11 +164,14 @@ let nextDesignId = 1;
 
 const cropper = ref(null);
 const activeDesign = ref(null); // The design currently being cropped
+const showHistorySelectionModal = ref(false); // New state for modal
 
 const a4Canvas = ref(null);
 const printableImage = ref(null);
 
 const allDesignsReady = computed(() => badgeDesigns.value.length > 0 && badgeDesigns.value.every(d => d.croppedImageSrc));
+
+const { cropHistory, addCrop, removeCrop, clearHistory } = useCropHistory(); // Use composable
 
 // --- Methods ---
 
@@ -175,14 +212,36 @@ const handleImageUpload = (event, design) => {
 const openCropper = (design) => {
   if (design.imageSrc) {
     activeDesign.value = design;
+    showHistorySelectionModal.value = true; // Show selection modal
   } else {
     alert('请先上传图片！');
   }
 };
 
+const selectFromHistory = (historyItem) => {
+  if (activeDesign.value) {
+    activeDesign.value.croppedImageSrc = historyItem.croppedImageSrc;
+    activeDesign.value.size = historyItem.metadata.size; // Restore size
+    showHistorySelectionModal.value = false;
+    activeDesign.value = null; // Clear active design
+  }
+};
+
+const openNewCropper = () => {
+  showHistorySelectionModal.value = false;
+  // activeDesign.value is already set by openCropper, so cropper will appear
+};
+
+const cancelHistorySelection = () => {
+  showHistorySelectionModal.value = false;
+  activeDesign.value = null; // Clear active design
+};
+
 const confirmCrop = () => {
   if (cropper.value && activeDesign.value) {
-    activeDesign.value.croppedImageSrc = cropper.value.crop();
+    const croppedDataUrl = cropper.value.crop();
+    activeDesign.value.croppedImageSrc = croppedDataUrl;
+    // Removed: addCrop(croppedDataUrl, { designId: activeDesign.value.id, size: activeDesign.value.size });
     activeDesign.value = null; // Hide cropper
   }
 };
@@ -196,6 +255,23 @@ const generateLayout = () => {
         alert('请确保所有图案都已上传并裁切！');
         return;
     }
+
+    // New: Add all unique cropped images from current designs to history
+    const uniqueCroppedImages = new Map(); // Use Map to store unique cropped images by their data URL + size
+    badgeDesigns.value.forEach(design => {
+      if (design.croppedImageSrc) {
+        const key = design.croppedImageSrc + '-' + design.size; // Unique key for image + size
+        if (!uniqueCroppedImages.has(key)) {
+          uniqueCroppedImages.set(key, {
+            croppedImageSrc: design.croppedImageSrc,
+            metadata: { size: design.size }
+          });
+        }
+      }
+    });
+    uniqueCroppedImages.forEach(item => {
+      addCrop(item.croppedImageSrc, item.metadata);
+    });
 
     const DPI = 300;
     const MM_PER_INCH = 25.4;
