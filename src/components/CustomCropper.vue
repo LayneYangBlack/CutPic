@@ -161,16 +161,16 @@ const handleZoomSlider = (value) => {
 }
 
 const zoomIn = () => {
-    handleZoom(zoom.value + 0.1);
+    handleZoom(zoom.value + 0.02);
 }
 
 const zoomOut = () => {
-    handleZoom(zoom.value - 0.1);
+    handleZoom(zoom.value - 0.02);
 }
 
 const onWheel = (e) => {
     const zoomFactor = e.deltaY < 0 ? 1.02 : 1 / 1.02;
-    handleZoom(zoom.value * zoomFactor, e.clientX, e.clientY);
+    handleZoom(zoom.value * zoomFactor);
 }
 
 const crop = () => {
