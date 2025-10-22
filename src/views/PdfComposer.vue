@@ -4,8 +4,19 @@
 
     <!-- Step 1: Upload Template -->
     <div class="p-4 border rounded-lg bg-white shadow-sm">
-      <h2 class="text-lg font-semibold mb-2">1. 上传 PDF 模板</h2>
+      <h2 class="text-lg font-semibold mb-2">1. 上传或加载 PDF 模板</h2>
       <input type="file" @change="handleTemplateUpload" accept=".pdf" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+      
+      <div class="mt-4">
+        <p class="text-center text-sm text-gray-500">或者</p>
+        <div class="flex items-center gap-2 mt-2">
+          <input type="text" v-model="templateUrl" placeholder="输入PDF网络地址..." class="flex-grow block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+          <button @click="handleTemplateUrl" class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 whitespace-nowrap" :disabled="isLoadingTemplate">
+            <span v-if="isLoadingTemplate">加载中...</span>
+            <span v-else>加载URL</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Step 2: Preview and Select Area -->
@@ -95,6 +106,8 @@ const templateCanvas = ref(null);
 const selectionCanvas = ref(null);
 const isTemplateRendered = ref(false);
 const templateFile = ref(null);
+const templateUrl = ref('');
+const isLoadingTemplate = ref(false);
 
 const selectionRect = reactive({ x: 0, y: 0, width: 0, height: 0, visible: false });
 const interaction = reactive({ mode: 'none', activeHandle: null, startPos: { x: 0, y: 0 }, startRect: {} });
@@ -213,8 +226,7 @@ const onMouseUp = () => {
 };
 
 // --- PDF Template Handling ---
-const handleTemplateUpload = async (event) => {
-  const file = event.target.files[0];
+const processTemplateFile = async (file) => {
   if (!file) return;
   templateFile.value = file;
   selectionRect.visible = false;
@@ -237,8 +249,41 @@ const handleTemplateUpload = async (event) => {
     selectionRect.height = 105;
     selectionRect.visible = true;
   } catch (error) {
-    console.error('Error rendering PDF template:', error);
+    console.error('渲染PDF模板时出错:', error);
     alert(`渲染PDF模板时出错: ${error.message}`);
+  }
+};
+
+const handleTemplateUpload = async (event) => {
+  const file = event.target.files[0];
+  await processTemplateFile(file);
+};
+
+const handleTemplateUrl = async () => {
+  if (!templateUrl.value) {
+    alert('请输入PDF的URL');
+    return;
+  }
+  isLoadingTemplate.value = true;
+  try {
+    const response = await fetch(templateUrl.value);
+    if (!response.ok) {
+      throw new Error(`网络响应错误: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    if (blob.type !== 'application/pdf') {
+        alert('URL指向的不是一个PDF文件，或者服务器未正确设置Content-Type。');
+        isLoadingTemplate.value = false;
+        return;
+    }
+    const fileName = templateUrl.value.split('/').pop().split('#')[0].split('?')[0] || 'downloaded.pdf';
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    await processTemplateFile(file);
+  } catch (error) {
+    console.error('加载网络PDF时出错:', error);
+    alert(`加载网络PDF失败: ${error.message}。请检查URL是否正确，以及是否存在CORS跨域限制。`);
+  } finally {
+    isLoadingTemplate.value = false;
   }
 };
 
