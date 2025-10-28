@@ -54,6 +54,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { SelfieSegmentation } from '@mediapipe/selfie_segmentation';
 
 // --- Refs for state management ---
 const imageSrc = ref(null);
@@ -72,9 +73,9 @@ onMounted(() => {
   isLoading.value = true;
 
   // Instantiate the MediaPipe Selfie Segmentation model
-  selfieSegmentation = new window.SelfieSegmentation({locateFile: (file) => {
-    // Point to the CDN for WASM files
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/${file}`;
+  selfieSegmentation = new SelfieSegmentation({locateFile: (file) => {
+    // Point to the local files copied to the public directory
+    return `/${file}`;
   }});
 
   selfieSegmentation.setOptions({

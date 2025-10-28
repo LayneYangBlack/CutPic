@@ -151,7 +151,7 @@ const processData = (data) => {
 
     // New Logic: Prioritize parsing attributes first
     // Try to match `(spec) non-digit-separator (pcs)` format, e.g., "44mm-30pcs", "44mm / 30pcs"
-    const multiSpecMatch = attributes.match(/((\d+(\.\d+)?)(cm|mm))\D+(\d+)\s*pcs/i);
+    const multiSpecMatch = attributes.match(/((\d+(\.\d+)?)(cm|mm))\D+(\d+)\s*(pcs|个)/i);
 
     if (multiSpecMatch) {
       // Case 1: Multi-spec name, attributes contain both spec and pcs
@@ -187,18 +187,18 @@ const processData = (data) => {
       }
 
       // 2. Find PCS, check attributes first, then name
-      const pcsInAttrMatch = attributes.match(/(\d+)\s*pcs/i);
+      const pcsInAttrMatch = attributes.match(/(\d+)\s*(pcs|个)/i);
       if (pcsInAttrMatch) {
         basePcs = parseInt(pcsInAttrMatch[1], 10);
       } else {
-        const pcsInNameMatch = productName.match(/(\d+)\s*pcs/i);
+        const pcsInNameMatch = productName.match(/(\d+)\s*(pcs|个)/i);
         if (pcsInNameMatch) {
           basePcs = parseInt(pcsInNameMatch[1], 10);
         }
       }
 
       // 3. Fallback for spec if it wasn't found and attribute is not a PCS value
-      if (spec === 'N/A' && attributes && !/^\s*\d+\s*pcs\s*$/i.test(attributes)) {
+      if (spec === 'N/A' && attributes && !/^\s*\d+\s*(pcs|个)\s*$/i.test(attributes)) {
         spec = attributes;
       }
     }

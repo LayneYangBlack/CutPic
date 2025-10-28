@@ -22,13 +22,16 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(__dirname, 'src'),
+      'vue': 'vue/dist/vue.runtime.esm-browser.js'
     }
   },
   server: {
+    /*
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp'
     }
+    */
   }
 })

@@ -99,7 +99,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted, watch } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue';
+import { PDFDocument } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist';
+import JSZip from 'jszip';
+
+// Set worker source on mount
+onMounted(() => {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+});
 
 // --- State ---
 const templateCanvas = ref(null);
@@ -233,7 +241,6 @@ const processTemplateFile = async (file) => {
   selectionRect.width = 0;
   barcodeFiles.value = [];
   try {
-    const pdfjsLib = await window.pdfjsLibPromise;
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const page = await pdf.getPage(1);
@@ -300,7 +307,6 @@ const handleBarcodeUpload = async (event) => {
     const newBarcodeSources = [];
 
     try {
-        const pdfjsLib = await window.pdfjsLibPromise;
         for (const file of files) {
             if (file.type === 'application/pdf') {
                 const arrayBuffer = await file.arrayBuffer();
@@ -346,7 +352,6 @@ const getFormattedTimestamp = () => {
 const getBarcodeAsPngBytes = async (barcodeSource) => {
     const { file, page: pageNum } = barcodeSource;
     if (file.type === 'application/pdf') {
-        const pdfjsLib = await window.pdfjsLibPromise;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(pageNum || 1);
@@ -357,7 +362,25 @@ const getBarcodeAsPngBytes = async (barcodeSource) => {
         await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
         return await new Promise(resolve => canvas.toBlob(blob => blob.arrayBuffer().then(resolve), 'image/png'));
     } else if (file.type.startsWith('image/')) {
-        return await file.arrayBuffer();
+        return await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(blob => {
+                    if (blob) {
+                        blob.arrayBuffer().then(resolve).catch(reject);
+                    } else {
+                        reject(new Error('Canvas toBlob failed.'));
+                    }
+                }, 'image/png'); // Convert to PNG
+            };
+            img.onerror = reject;
+            img.src = URL.createObjectURL(file);
+        });
     }
     return null;
 };
@@ -376,7 +399,7 @@ async function createPdfPage(pdfDoc, barcodeSource) {
     const barcodeImageEmbed = await pdfDoc.embedPng(barcodeBytes);
     const templatePage = pdfDoc.getPages()[0];
     const { width, height } = templatePage.getSize();
-    const viewport = await window.pdfjsLib.getDocument(await templateFile.value.arrayBuffer()).promise.then(pdf => pdf.getPage(1)).then(p => p.getViewport({ scale: 1.5 }));
+    const viewport = await pdfjsLib.getDocument(await templateFile.value.arrayBuffer()).promise.then(pdf => pdf.getPage(1)).then(p => p.getViewport({ scale: 1.5 }));
     const scale = height / viewport.height;
     const pdfX = selectionRect.x * scale, pdfY = height - (selectionRect.y * scale) - (selectionRect.height * scale), pdfWidth = selectionRect.width * scale, pdfHeight = selectionRect.height * scale;
     templatePage.drawImage(barcodeImageEmbed, { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight });
@@ -386,7 +409,6 @@ const composeSinglePdf = async () => {
     isComposing.value = true;
     composingProgress.value = '正在合成PDF...';
     try {
-        const { PDFDocument } = window.PDFLib;
         const pdfDoc = await PDFDocument.load(await templateFile.value.arrayBuffer());
         await createPdfPage(pdfDoc, barcodeFiles.value[0]);
         const pdfBytes = await pdfDoc.save();
@@ -402,8 +424,7 @@ const composeBatchZip = async () => {
     if (!templateFile.value || !barcodeFiles.value.length || !selectionRect.width) { alert('请先完成所有步骤！'); return; }
     isComposing.value = true;
     try {
-        const { PDFDocument } = window.PDFLib;
-        const zip = new window.JSZip();
+        const zip = new JSZip();
         const templateBytes = await templateFile.value.arrayBuffer();
         for (let i = 0; i < barcodeFiles.value.length; i++) {
             const barcodeSource = barcodeFiles.value[i];
@@ -435,12 +456,11 @@ const composeBatchPdf = async () => {
     if (!templateFile.value || !barcodeFiles.value.length || !selectionRect.width) { alert('请先完成所有步骤！'); return; }
     isComposing.value = true;
     try {
-        const { PDFDocument } = window.PDFLib;
         const finalPdfDoc = await PDFDocument.create();
         const templateBytes = await templateFile.value.arrayBuffer();
 
         // Get viewport info using a sliced buffer, so templateBytes is not detached.
-        const viewport = await window.pdfjsLib.getDocument({ data: templateBytes.slice(0) }).promise.then(pdf => pdf.getPage(1)).then(p => p.getViewport({ scale: 1.5 }));
+        const viewport = await pdfjsLib.getDocument({ data: templateBytes.slice(0) }).promise.then(pdf => pdf.getPage(1)).then(p => p.getViewport({ scale: 1.5 }));
 
         for (let i = 0; i < barcodeFiles.value.length; i++) {
             const barcodeSource = barcodeFiles.value[i];

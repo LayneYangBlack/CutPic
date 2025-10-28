@@ -76,6 +76,7 @@
 <script setup>
 import { ref, onMounted, nextTick, computed } from 'vue';
 import inpaint, { initInpaintSession } from '../adapters/inpainting.js';
+import JSZip from 'jszip';
 
 // Model Loading State
 const isModelLoading = ref(true);
@@ -285,7 +286,7 @@ const downloadZip = async () => {
         return;
     }
 
-    const zip = new window.JSZip();
+    const zip = new JSZip();
     
     for (const item of processedImages) {
         const response = await fetch(item.processedSrc);
