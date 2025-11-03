@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename)
 
 // 复制 manifest.json 到 dist 目录
 fs.copyFileSync(
-  path.join(__dirname, 'manifest.json'),
+  path.join(__dirname, 'public', 'manifest.json'),
   path.join(__dirname, 'dist', 'manifest.json')
 )
 
