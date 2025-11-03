@@ -9,11 +9,11 @@
         <h2 class="text-lg font-semibold mb-4">1. 全局设置</h2>
         <div class="grid grid-cols-2 gap-4">
           <!-- Mode Tabs -->
-          <div class="flex border-b pt-2 col-span-2">
+          <!-- <div class="flex border-b pt-2 col-span-2">
             <button @click="layoutMode = 'manual'" :class="{'border-blue-500 text-blue-600': layoutMode === 'manual', 'border-transparent text-gray-500': layoutMode !== 'manual'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">手动模式</button>
             <button @click="layoutMode = 'auto'" :class="{'border-blue-500 text-blue-600': layoutMode === 'auto', 'border-transparent text-gray-500': layoutMode !== 'auto'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">自动模式</button>
           </div>
-          
+           -->
           <div v-if="layoutMode === 'auto'" class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 animate-fade-in col-span-2">
             <p>自动模式将最大化利用纸张空间，并自动计算间隙，实现页面居中对齐。</p>
           </div>
@@ -158,6 +158,9 @@ const sizeMap = {
 };
 const gapH = ref(2);
 const gapV = ref(2);
+
+// 自动模式下的默认间隙 (mm)
+const autoModeDefaultGap = ref(10);
 
 const badgeDesigns = ref([]);
 let nextDesignId = 1;
@@ -323,8 +326,8 @@ const generateLayout = () => {
         loadedImages.forEach(({ badge, img }) => {
             const innerDiaPx = mmToPx(badge.size);
             const outerDiaPx = mmToPx(badge.outerDiameter);
-            const currentGapHPx = layoutMode.value === 'manual' ? mmToPx(gapH.value) : mmToPx(2); // Default min gap for auto
-            const currentGapVPx = layoutMode.value === 'manual' ? mmToPx(gapV.value) : mmToPx(2); // Default min gap for auto
+            const currentGapHPx = layoutMode.value === 'manual' ? mmToPx(gapH.value) : mmToPx(autoModeDefaultGap.value); // Default min gap for auto
+            const currentGapVPx = layoutMode.value === 'manual' ? mmToPx(gapV.value) : mmToPx(autoModeDefaultGap.value); // Default min gap for auto
 
             if (currentX + outerDiaPx > effectiveCanvasWidth && currentX !== 0) { // If it doesn't fit in current row, and it's not the very first item
                 currentX = 0;
@@ -354,8 +357,8 @@ const generateLayout = () => {
         let offsetY = 0;
 
         if (layoutMode.value === 'auto') {
-            offsetX = (canvas.width - totalPackedWidth) / 2;
-            offsetY = (canvas.height - totalPackedHeight) / 2;
+            offsetX = mmToPx(12); // marginLeftMM
+            offsetY = mmToPx(15); // marginTopMM
         } else { // Manual mode, use fixed margins
             offsetX = mmToPx(12); // marginLeftMM
             offsetY = mmToPx(15); // marginTopMM
