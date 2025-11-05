@@ -78,14 +78,20 @@
 
       <!-- Cropper Section (conditional) -->
       <div v-if="activeDesign && !showHistorySelectionModal" class="p-4 border rounded-lg bg-white shadow-sm">
-        <div class="flex justify-between items-center mb-2">
+        <div class="flex justify-between items-center mb-4">
             <h2 class="text-lg font-semibold">裁切图案 #{{ activeDesign.id }}</h2>
-            <div>
-              <button @click="cancelCrop" class="px-4 py-2 text-gray-600 rounded hover:bg-gray-100 text-sm mr-2">取消</button>
-              <button @click="confirmCrop" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">确认裁切</button>
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-2">
+                <label for="multi-cropper-bg-color" class="text-sm font-medium text-gray-700">背景色:</label>
+                <input type="color" id="multi-cropper-bg-color" v-model="cropperBgColor" class="w-8 h-8 p-0 border rounded cursor-pointer" style="border-color: #ccc;">
+              </div>
+              <div>
+                <button @click="cancelCrop" class="px-4 py-2 text-gray-600 rounded hover:bg-gray-100 text-sm mr-2">取消</button>
+                <button @click="confirmCrop" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">确认裁切</button>
+              </div>
             </div>
         </div>
-        <div class="cropper-container bg-gray-100" style="height: 400px;">
+        <div class="cropper-container" :style="{ backgroundColor: cropperBgColor, height: '400px' }">
           <CustomCropper
             ref="cropper"
             :src="activeDesign.imageSrc"
@@ -171,6 +177,7 @@ const showHistorySelectionModal = ref(false); // New state for modal
 
 const a4Canvas = ref(null);
 const printableImage = ref(null);
+const cropperBgColor = ref('#f3f4f6'); // Add cropper background color state
 
 const allDesignsReady = computed(() => badgeDesigns.value.length > 0 && badgeDesigns.value.every(d => d.croppedImageSrc));
 
@@ -195,18 +202,48 @@ const removeDesign = (id) => {
 const handleImageUpload = (event, design) => {
   const file = event.target.files[0];
   if (file) {
+    // Revoke previous blob URL if any, though design.imageSrc directly stores Base64 here.
+    // If it ever switches to blob URL, this will be needed.
+    // if (design.imageSrc && design.imageSrc.startsWith('blob:')) {
+    //   URL.revokeObjectURL(design.imageSrc);
+    // }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        design.imageSrc = canvas.toDataURL('image/png');
+        const MAX_DIMENSION = 4096; // Max dimension for either width or height
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          const aspectRatio = width / height;
+          if (width > height) {
+            width = MAX_DIMENSION;
+            height = MAX_DIMENSION / aspectRatio;
+          } else {
+            height = MAX_DIMENSION;
+            width = MAX_DIMENSION * aspectRatio;
+          }
+          // Create a temporary canvas for downscaling
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = width;
+          tempCanvas.height = height;
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCtx.drawImage(img, 0, 0, width, height);
+          design.imageSrc = tempCanvas.toDataURL('image/png'); // Convert downscaled image to data URL
+          console.log(`MultiBadgeLayout: Image downscaled from ${img.width}x${img.height} to ${width}x${height}`);
+        } else {
+          // If image is not too large, use the original data URL
+          design.imageSrc = e.target.result;
+        }
         design.croppedImageSrc = null; // Reset crop when new image is uploaded
       };
-      img.src = e.target.result;
+      img.onerror = () => {
+        console.error("MultiBadgeLayout: Image failed to load from FileReader result.", { src: e.target.result });
+        alert("图片加载失败，请检查文件是否损坏或尝试其他图片。");
+      };
+      img.src = e.target.result; // Load image from FileReader result
     };
     reader.readAsDataURL(file);
   }
