@@ -96,6 +96,7 @@
             ref="cropper"
             :src="activeDesign.imageSrc"
             :key="activeDesign.id" 
+            :background-color="cropperBgColor"
           />
         </div>
       </div>

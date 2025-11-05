@@ -65,6 +65,7 @@
           <CustomCropper
             ref="cropper"
             :src="imageSrc"
+            :background-color="cropperBgColor"
           />
         </div>
       </div>

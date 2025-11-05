@@ -15,6 +15,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   src: { type: String, required: true },
+  backgroundColor: { type: String, default: '#f3f4f6' },
 });
 
 const canvas = ref(null);
@@ -217,6 +218,10 @@ const crop = () => {
     tempCtx.arc(radius, radius, radius, 0, Math.PI * 2);
     tempCtx.closePath();
     tempCtx.clip();
+
+    // Fill the background color
+    tempCtx.fillStyle = props.backgroundColor;
+    tempCtx.fillRect(0, 0, cropSize, cropSize);
 
     // Calculate the source rectangle from the original image
     const imgXatCenter = (canvasEl.width / 2 - offset.value.x) / zoom.value;
