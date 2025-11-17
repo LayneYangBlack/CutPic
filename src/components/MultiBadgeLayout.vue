@@ -130,7 +130,7 @@
 
           <div v-if="cropHistory.length > 0">
             <h4 class="text-md font-medium text-gray-700 mb-2">裁剪历史</h4>
-            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3 max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
+            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3 p-2 border rounded-md bg-gray-50">
               <div v-for="item in cropHistory" :key="item.id" class="relative group">
                 <img :src="item.croppedImageSrc" class="w-full h-auto rounded-full border-2 border-gray-300 group-hover:border-green-500 cursor-pointer" @click="selectFromHistory(item)" :title="`裁剪于: ${new Date(item.timestamp).toLocaleString()} 尺寸: ${item.metadata.size}mm`">
                 <div class="text-center text-xs text-gray-600 mt-1">{{ item.metadata.size }}mm</div>

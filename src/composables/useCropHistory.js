@@ -1,7 +1,6 @@
 import { ref, watch } from 'vue';
 
 const CROP_HISTORY_KEY = 'cropHistory';
-const MAX_HISTORY_ITEMS = 10; // Limit history to prevent localStorage overflow
 
 const cropHistory = ref([]);
 
@@ -48,9 +47,6 @@ export function useCropHistory() {
       metadata,
     };
     cropHistory.value.unshift(newCrop); // Add to the beginning
-    if (cropHistory.value.length > MAX_HISTORY_ITEMS) {
-      cropHistory.value.pop(); // Remove oldest if over limit
-    }
   };
 
   const removeCrop = (id) => {
