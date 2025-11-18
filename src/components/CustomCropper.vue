@@ -137,6 +137,16 @@ const redraw = () => {
   ctx.arc(canvasEl.width / 2, canvasEl.height / 2, radius, 0, Math.PI * 2, true); // true for counter-clockwise
   ctx.fill();
   ctx.restore();
+
+  // Draw a white dashed border around the cropping circle for visibility
+  ctx.save();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]); // Dashed line
+  ctx.beginPath();
+  ctx.arc(canvasEl.width / 2, canvasEl.height / 2, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 };
 
 const onMouseDown = (e) => {
