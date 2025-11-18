@@ -15,6 +15,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   src: { type: String, required: true },
+  backgroundColor: { type: String, default: '#f3f4f6' },
 });
 
 const canvas = ref(null);
@@ -23,6 +24,7 @@ const zoom = ref(1);
 const offset = ref({ x: 0, y: 0 });
 const isDragging = ref(false);
 const lastDragPos = ref({ x: 0, y: 0 });
+const isInitialized = ref(false);
 
 let ctx = null;
 
@@ -32,9 +34,17 @@ onMounted(() => {
   const resizeObserver = new ResizeObserver(entries => {
     for (let entry of entries) {
       const { width, height } = entry.contentRect;
-      canvas.value.width = width;
-      canvas.value.height = height;
-      redraw();
+      if (canvas.value.width !== width || canvas.value.height !== height) {
+        canvas.value.width = width;
+        canvas.value.height = height;
+        // If an image is loaded but not yet initialized, reset its transform.
+        // Otherwise, just redraw it at its current pan/zoom state.
+        if (image.value && !isInitialized.value) {
+            resetTransform();
+        } else {
+            redraw();
+        }
+      }
     }
   });
 
@@ -47,12 +57,19 @@ onMounted(() => {
 
 watch(() => props.src, (newSrc) => {
   if (newSrc) {
+    isInitialized.value = false;
     const img = new Image();
-    img.crossOrigin = 'Anonymous';
+    // crossOrigin is not needed for blob URLs and might cause issues.
+    // img.crossOrigin = 'Anonymous'; 
     img.onload = () => {
       image.value = img;
+      // resetTransform() will be called either here if canvas is ready,
+      // or by the ResizeObserver when it sizes the canvas.
       resetTransform();
-      redraw();
+    };
+    img.onerror = () => {
+      console.error("CustomCropper: Image failed to load.", { src: newSrc });
+      alert("图片加载失败，请检查文件是否损坏或尝试其他图片。");
     };
     img.src = newSrc;
   }
@@ -60,24 +77,35 @@ watch(() => props.src, (newSrc) => {
 
 const resetTransform = () => {
     if (image.value && canvas.value && canvas.value.width > 0) {
-        // Scale image to fit the circle crop area
         const canvasRadius = Math.min(canvas.value.width, canvas.value.height) / 2;
         const imgMinDim = Math.min(image.value.width, image.value.height);
-        
-        zoom.value = (canvasRadius * 2) / imgMinDim;
 
-        // Center the image
-        offset.value = {
-            x: (canvas.value.width - image.value.width * zoom.value) / 2,
-            y: (canvas.value.height - image.value.height * zoom.value) / 2,
-        };
+        if (imgMinDim > 0) {
+            // Scale image to fit the circle crop area
+            zoom.value = (canvasRadius * 2) / imgMinDim;
+
+            // Center the image
+            offset.value = {
+                x: (canvas.value.width - image.value.width * zoom.value) / 2,
+                y: (canvas.value.height - image.value.height * zoom.value) / 2,
+            };
+            isInitialized.value = true;
+        } else {
+            // Fallback for images with no dimensions, just center it.
+            zoom.value = 1;
+            offset.value = {
+                x: (canvas.value.width - image.value.width) / 2,
+                y: (canvas.value.height - image.value.height) / 2,
+            };
+        }
     } else {
+        // If canvas is not ready, do nothing. The ResizeObserver will call this function again.
+        isInitialized.value = false;
         zoom.value = 1;
         offset.value = { x: 0, y: 0 };
     }
     redraw();
 };
-
 const redraw = () => {
   if (!ctx || !canvas.value || !canvas.value.width || !canvas.value.height) return;
   const canvasEl = canvas.value;
@@ -108,6 +136,16 @@ const redraw = () => {
   // Carve out the circle
   ctx.arc(canvasEl.width / 2, canvasEl.height / 2, radius, 0, Math.PI * 2, true); // true for counter-clockwise
   ctx.fill();
+  ctx.restore();
+
+  // Draw a white dashed border around the cropping circle for visibility
+  ctx.save();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]); // Dashed line
+  ctx.beginPath();
+  ctx.arc(canvasEl.width / 2, canvasEl.height / 2, radius, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 };
 
@@ -190,6 +228,10 @@ const crop = () => {
     tempCtx.arc(radius, radius, radius, 0, Math.PI * 2);
     tempCtx.closePath();
     tempCtx.clip();
+
+    // Fill the background color
+    tempCtx.fillStyle = props.backgroundColor;
+    tempCtx.fillRect(0, 0, cropSize, cropSize);
 
     // Calculate the source rectangle from the original image
     const imgXatCenter = (canvasEl.width / 2 - offset.value.x) / zoom.value;

@@ -9,11 +9,11 @@
         <h2 class="text-lg font-semibold mb-4">1. 全局设置</h2>
         <div class="grid grid-cols-2 gap-4">
           <!-- Mode Tabs -->
-          <div class="flex border-b pt-2 col-span-2">
+          <!-- <div class="flex border-b pt-2 col-span-2">
             <button @click="layoutMode = 'manual'" :class="{'border-blue-500 text-blue-600': layoutMode === 'manual', 'border-transparent text-gray-500': layoutMode !== 'manual'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">手动模式</button>
             <button @click="layoutMode = 'auto'" :class="{'border-blue-500 text-blue-600': layoutMode === 'auto', 'border-transparent text-gray-500': layoutMode !== 'auto'}" class="px-4 py-2 border-b-2 font-medium text-sm focus:outline-none">自动模式</button>
           </div>
-          
+           -->
           <div v-if="layoutMode === 'auto'" class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 animate-fade-in col-span-2">
             <p>自动模式将最大化利用纸张空间，并自动计算间隙，实现页面居中对齐。</p>
           </div>
@@ -78,18 +78,25 @@
 
       <!-- Cropper Section (conditional) -->
       <div v-if="activeDesign && !showHistorySelectionModal" class="p-4 border rounded-lg bg-white shadow-sm">
-        <div class="flex justify-between items-center mb-2">
+        <div class="flex justify-between items-center mb-4">
             <h2 class="text-lg font-semibold">裁切图案 #{{ activeDesign.id }}</h2>
-            <div>
-              <button @click="cancelCrop" class="px-4 py-2 text-gray-600 rounded hover:bg-gray-100 text-sm mr-2">取消</button>
-              <button @click="confirmCrop" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">确认裁切</button>
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-2">
+                <label for="multi-cropper-bg-color" class="text-sm font-medium text-gray-700">背景色:</label>
+                <input type="color" id="multi-cropper-bg-color" v-model="cropperBgColor" class="w-8 h-8 p-0 border rounded cursor-pointer" style="border-color: #ccc;">
+              </div>
+              <div>
+                <button @click="cancelCrop" class="px-4 py-2 text-gray-600 rounded hover:bg-gray-100 text-sm mr-2">取消</button>
+                <button @click="confirmCrop" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">确认裁切</button>
+              </div>
             </div>
         </div>
-        <div class="cropper-container bg-gray-100" style="height: 400px;">
+        <div class="cropper-container" :style="{ backgroundColor: cropperBgColor, height: '400px' }">
           <CustomCropper
             ref="cropper"
             :src="activeDesign.imageSrc"
             :key="activeDesign.id" 
+            :background-color="cropperBgColor"
           />
         </div>
       </div>
@@ -123,7 +130,7 @@
 
           <div v-if="cropHistory.length > 0">
             <h4 class="text-md font-medium text-gray-700 mb-2">裁剪历史</h4>
-            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3 max-h-60 overflow-y-auto p-2 border rounded-md bg-gray-50">
+            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3 p-2 border rounded-md bg-gray-50">
               <div v-for="item in cropHistory" :key="item.id" class="relative group">
                 <img :src="item.croppedImageSrc" class="w-full h-auto rounded-full border-2 border-gray-300 group-hover:border-green-500 cursor-pointer" @click="selectFromHistory(item)" :title="`裁剪于: ${new Date(item.timestamp).toLocaleString()} 尺寸: ${item.metadata.size}mm`">
                 <div class="text-center text-xs text-gray-600 mt-1">{{ item.metadata.size }}mm</div>
@@ -159,6 +166,9 @@ const sizeMap = {
 const gapH = ref(2);
 const gapV = ref(2);
 
+// 自动模式下的默认间隙 (mm)
+const autoModeDefaultGap = ref(10);
+
 const badgeDesigns = ref([]);
 let nextDesignId = 1;
 
@@ -168,6 +178,7 @@ const showHistorySelectionModal = ref(false); // New state for modal
 
 const a4Canvas = ref(null);
 const printableImage = ref(null);
+const cropperBgColor = ref('#f3f4f6'); // Add cropper background color state
 
 const allDesignsReady = computed(() => badgeDesigns.value.length > 0 && badgeDesigns.value.every(d => d.croppedImageSrc));
 
@@ -192,18 +203,48 @@ const removeDesign = (id) => {
 const handleImageUpload = (event, design) => {
   const file = event.target.files[0];
   if (file) {
+    // Revoke previous blob URL if any, though design.imageSrc directly stores Base64 here.
+    // If it ever switches to blob URL, this will be needed.
+    // if (design.imageSrc && design.imageSrc.startsWith('blob:')) {
+    //   URL.revokeObjectURL(design.imageSrc);
+    // }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        design.imageSrc = canvas.toDataURL('image/png');
+        const MAX_DIMENSION = 4096; // Max dimension for either width or height
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          const aspectRatio = width / height;
+          if (width > height) {
+            width = MAX_DIMENSION;
+            height = MAX_DIMENSION / aspectRatio;
+          } else {
+            height = MAX_DIMENSION;
+            width = MAX_DIMENSION * aspectRatio;
+          }
+          // Create a temporary canvas for downscaling
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = width;
+          tempCanvas.height = height;
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCtx.drawImage(img, 0, 0, width, height);
+          design.imageSrc = tempCanvas.toDataURL('image/png'); // Convert downscaled image to data URL
+          console.log(`MultiBadgeLayout: Image downscaled from ${img.width}x${img.height} to ${width}x${height}`);
+        } else {
+          // If image is not too large, use the original data URL
+          design.imageSrc = e.target.result;
+        }
         design.croppedImageSrc = null; // Reset crop when new image is uploaded
       };
-      img.src = e.target.result;
+      img.onerror = () => {
+        console.error("MultiBadgeLayout: Image failed to load from FileReader result.", { src: e.target.result });
+        alert("图片加载失败，请检查文件是否损坏或尝试其他图片。");
+      };
+      img.src = e.target.result; // Load image from FileReader result
     };
     reader.readAsDataURL(file);
   }
@@ -323,8 +364,8 @@ const generateLayout = () => {
         loadedImages.forEach(({ badge, img }) => {
             const innerDiaPx = mmToPx(badge.size);
             const outerDiaPx = mmToPx(badge.outerDiameter);
-            const currentGapHPx = layoutMode.value === 'manual' ? mmToPx(gapH.value) : mmToPx(2); // Default min gap for auto
-            const currentGapVPx = layoutMode.value === 'manual' ? mmToPx(gapV.value) : mmToPx(2); // Default min gap for auto
+            const currentGapHPx = layoutMode.value === 'manual' ? mmToPx(gapH.value) : mmToPx(autoModeDefaultGap.value); // Default min gap for auto
+            const currentGapVPx = layoutMode.value === 'manual' ? mmToPx(gapV.value) : mmToPx(autoModeDefaultGap.value); // Default min gap for auto
 
             if (currentX + outerDiaPx > effectiveCanvasWidth && currentX !== 0) { // If it doesn't fit in current row, and it's not the very first item
                 currentX = 0;
@@ -354,8 +395,8 @@ const generateLayout = () => {
         let offsetY = 0;
 
         if (layoutMode.value === 'auto') {
-            offsetX = (canvas.width - totalPackedWidth) / 2;
-            offsetY = (canvas.height - totalPackedHeight) / 2;
+            offsetX = mmToPx(12); // marginLeftMM
+            offsetY = mmToPx(15); // marginTopMM
         } else { // Manual mode, use fixed margins
             offsetX = mmToPx(12); // marginLeftMM
             offsetY = mmToPx(15); // marginTopMM

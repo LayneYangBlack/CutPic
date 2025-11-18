@@ -10,11 +10,11 @@
       </router-link>
 
       <!-- 图片修复工具 -->
-      <router-link to="/inpaint" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <svg class="w-16 h-16 mb-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3c-1.2 0-2.4.3-3.5.8-1.1.5-2.1 1.2-2.9 2.1-1.6 1.6-2.6 3.8-2.6 6.1 0 2.3 1 4.5 2.6 6.1 1.6 1.6 3.8 2.6 6.1 2.6s4.5-1 6.1-2.6c1.6-1.6 2.6-3.8 2.6-6.1 0-2.3-1-4.5-2.6-6.1C16.5 4.2 15.5 3.5 14.4 3L12 3zm0 0v.01M12 15l-2 2 4 4 2-2-4-4z"></path></svg>
-        <h2 class="text-xl font-semibold">图片消除</h2>
-        <p class="text-gray-500 dark:text-gray-400 mt-2">移除图片中的多余物体</p>
-      </router-link>
+<!--      <router-link to="/inpaint" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">-->
+<!--        <svg class="w-16 h-16 mb-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3c-1.2 0-2.4.3-3.5.8-1.1.5-2.1 1.2-2.9 2.1-1.6 1.6-2.6 3.8-2.6 6.1 0 2.3 1 4.5 2.6 6.1 1.6 1.6 3.8 2.6 6.1 2.6s4.5-1 6.1-2.6c1.6-1.6 2.6-3.8 2.6-6.1 0-2.3-1-4.5-2.6-6.1C16.5 4.2 15.5 3.5 14.4 3L12 3zm0 0v.01M12 15l-2 2 4 4 2-2-4-4z"></path></svg>-->
+<!--        <h2 class="text-xl font-semibold">图片消除</h2>-->
+<!--        <p class="text-gray-500 dark:text-gray-400 mt-2">移除图片中的多余物体</p>-->
+<!--      </router-link>-->
 
       <!-- 徽章排版工具 -->
       <router-link to="/badge" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -31,17 +31,24 @@
       </router-link>
 
       <!-- 一键抠图工具 -->
-      <router-link to="/remove-background" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <svg class="w-16 h-16 mb-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-        <h2 class="text-xl font-semibold">一键抠图</h2>
-        <p class="text-gray-500 dark:text-gray-400 mt-2">自动移除图片背景</p>
-      </router-link>
+<!--      <router-link to="/remove-background" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">-->
+<!--        <svg class="w-16 h-16 mb-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>-->
+<!--        <h2 class="text-xl font-semibold">一键抠图</h2>-->
+<!--        <p class="text-gray-500 dark:text-gray-400 mt-2">自动移除图片背景</p>-->
+<!--      </router-link>-->
 
       <!-- 规格图生成工具 -->
       <router-link to="/spec-generator" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
         <svg class="w-16 h-16 mb-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6M9 17h6M9 9h3"></path></svg>
         <h2 class="text-xl font-semibold">规格图生成</h2>
         <p class="text-gray-500 dark:text-gray-400 mt-2">批量生成带文字的规格图</p>
+      </router-link>
+
+      <!-- 规格统计工具 -->
+      <router-link to="/spec-statistics" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 14h.01M12 11h.01M9 11h.01M15 11h.01M12 8h.01M15 8h.01M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"></path></svg>
+        <h2 class="text-xl font-semibold">规格数量统计</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">从Excel统计商品规格和数量</p>
       </router-link>
     </div>
   </div>

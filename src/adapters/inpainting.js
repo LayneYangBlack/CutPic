@@ -1,4 +1,5 @@
 import cv from 'opencv-ts';
+import * as ort from 'onnxruntime-web';
 
 // --- Session Management ---
 let sessionPromise = null;
@@ -48,18 +49,18 @@ async function fetchWithProgress(url, progressCallback) {
 export function initInpaintSession(progressCallback) {
   sessionPromise = new Promise(async (resolve, reject) => {
     try {
-      const ort = window.ort;
       if (!ort) {
         throw new Error("ONNX Runtime is not available.");
       }
 
-      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-      
       const modelPath = new URL('/inpaint.onnx', window.location.href).toString();
       const modelBuffer = await fetchWithProgress(modelPath, progressCallback);
 
       const session = await ort.InferenceSession.create(modelBuffer, {
-        executionProviders: ['wasm'],
+        executionProviders: [{
+          name: 'wasm',
+          wasmPaths: './',
+        }],
       });
 
       resolve(session);
