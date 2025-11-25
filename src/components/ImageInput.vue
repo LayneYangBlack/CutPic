@@ -61,6 +61,7 @@
             type="file"
             class="hidden"
             accept="image/*"
+            multiple
             @change="handleFileUpload"
           />
         </label>
@@ -75,7 +76,7 @@
 <script setup>
 import { ref } from 'vue'
 
-const emit = defineEmits(['image-loaded'])
+const emit = defineEmits(['image-loaded', 'images-loaded'])
 const imageUrl = ref('')
 const error = ref('')
 
@@ -99,15 +100,21 @@ const handleUrlSubmit = async () => {
 }
 
 const handleFileUpload = (event) => {
-  const file = event.target.files[0]
-  if (!file) return
+  const files = Array.from(event.target.files)
+  if (files.length === 0) return
 
-  if (!file.type.startsWith('image/')) {
+  const validFiles = files.filter(file => file.type.startsWith('image/'))
+  
+  if (validFiles.length === 0) {
     error.value = '请上传图片文件'
     return
   }
 
-  emit('image-loaded', file)
+  if (validFiles.length === 1) {
+    emit('image-loaded', validFiles[0])
+  } else {
+    emit('images-loaded', validFiles)
+  }
   error.value = ''
 }
 </script> 
