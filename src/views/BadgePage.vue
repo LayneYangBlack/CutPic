@@ -18,12 +18,21 @@
         >
           多图案排版
         </button>
+        <button
+          @click="mode = 'cdr'"
+          :class="['w-full rounded-md py-2.5 text-sm font-medium leading-5',
+            mode === 'cdr' ? 'bg-white shadow' : 'text-gray-700 hover:bg-white/[0.5]'
+          ]"
+        >
+          CDR排版
+        </button>
       </div>
     </div>
 
     <div>
       <SingleBadgeLayout v-if="mode === 'single'" />
       <MultiBadgeLayout v-if="mode === 'multi'" />
+      <CdrBadgeLayout v-if="mode === 'cdr'" />
     </div>
   </div>
 </template>
@@ -32,8 +41,9 @@
 import { ref } from 'vue';
 import SingleBadgeLayout from '../components/SingleBadgeLayout.vue';
 import MultiBadgeLayout from '../components/MultiBadgeLayout.vue';
+import CdrBadgeLayout from '../components/CdrBadgeLayout.vue';
 
-const mode = ref('single'); // 'single' or 'multi'
+const mode = ref('single'); // 'single', 'multi', or 'cdr'
 </script>
 
 <style scoped>
