@@ -261,11 +261,12 @@ const generateLayout = () => {
   ctx.lineTo(canvas.width - marginRightPx, canvas.height - marginBottomPx - markerLength);
   ctx.stroke();
 
-  // Calculate layout area (apply edge padding inside the margins)
+  // Calculate layout area (apply edge padding inside the margins, allow 5mm overflow)
+  const allowedOverflow = mmToPx(5);
   const edgePaddingHPx = mmToPx(edgePaddingH.value);
   const edgePaddingVPx = mmToPx(edgePaddingV.value);
-  const effectiveWidth = canvas.width - marginLeftPx - marginRightPx - 2 * edgePaddingHPx;
-  const effectiveHeight = canvas.height - marginTopPx - marginBottomPx - 2 * edgePaddingVPx;
+  const effectiveWidth = canvas.width - marginLeftPx - marginRightPx - 2 * edgePaddingHPx + 2 * allowedOverflow;
+  const effectiveHeight = canvas.height - marginTopPx - marginBottomPx - 2 * edgePaddingVPx + 2 * allowedOverflow;
   const spacingHPx = mmToPx(spacingH.value);
   const spacingVPx = mmToPx(spacingV.value);
 
@@ -281,8 +282,8 @@ const generateLayout = () => {
   // Calculate spacing to center the layout
   const totalBadgesWidth = cols * outerDiaPx + (cols - 1) * spacingHPx;
   const totalBadgesHeight = rows * outerDiaPx + (rows - 1) * spacingVPx;
-  const startX = marginLeftPx + edgePaddingHPx + (effectiveWidth - totalBadgesWidth) / 2;
-  const startY = marginTopPx + edgePaddingVPx + (effectiveHeight - totalBadgesHeight) / 2;
+  const startX = marginLeftPx + edgePaddingHPx - allowedOverflow + (effectiveWidth - totalBadgesWidth) / 2;
+  const startY = marginTopPx + edgePaddingVPx - allowedOverflow + (effectiveHeight - totalBadgesHeight) / 2;
 
   const img = new Image();
   img.onload = () => {
