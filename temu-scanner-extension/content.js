@@ -57,29 +57,29 @@
     }
   });
 
-  // 扫码枪输入监听
+  // 扫码枪输入监听(不需要回车,自动触发)
   let scanBuffer = "";
   let scanTimer = null;
-  const SCAN_TIMEOUT = 100; // 扫码枪输入间隔小于100ms
+  const SCAN_TIMEOUT = 150; // 扫码枪输入间隔小于150ms
 
   // 监听键盘输入
   document.addEventListener("keypress", (e) => {
+    // 如果焦点在模拟输入框里,不处理
+    if (e.target.id === "temu-simulate-scan") return;
+
     // 清除之前的定时器
     if (scanTimer) clearTimeout(scanTimer);
 
-    // 累积输入
-    if (e.key === "Enter") {
-      // 回车表示扫码完成
-      if (scanBuffer.length > 5) {
-        handleScan(scanBuffer.trim());
-      }
-      scanBuffer = "";
-    } else {
+    // 累积输入(忽略Enter键)
+    if (e.key !== "Enter") {
       scanBuffer += e.key;
     }
 
-    // 设置超时清空（区分手动输入）
+    // 设置超时:输入停止后自动触发扫码
     scanTimer = setTimeout(() => {
+      if (scanBuffer.length > 5) {
+        handleScan(scanBuffer.trim());
+      }
       scanBuffer = "";
     }, SCAN_TIMEOUT);
   });
@@ -88,24 +88,28 @@
   function handleScan(code) {
     console.log("🔍 扫码内容:", code);
 
-    // 通过条码映射找到订单号
-    const orderSn = barcodeMap[code];
-    if (!orderSn) {
-      showNotification("未找到条码映射,请先批量打印条码", "error");
+    // 通过条码映射找到personalSkuId
+    const personalSkuId = barcodeMap[code];
+    if (!personalSkuId) {
+      showNotification("未找到条码映射,请重新批量打印条码更新缓存", "error");
       return;
     }
 
-    console.log("✅ 找到personalSkuId:", orderSn);
+    console.log("✅ 找到personalSkuId:", personalSkuId);
 
-    // 从缓存中获取定制内容(用personalProductSkuId作为key)
-    const customData = customDataCache[orderSn];
+    // 从缓存中获取定制内容
+    const customData = customDataCache[personalSkuId];
     if (!customData) {
-      showNotification("未找到定制内容,请先批量查看定制内容", "error");
+      showNotification(
+        "未找到定制内容,请重新批量查看定制内容更新缓存",
+        "error",
+      );
       return;
     }
 
-    // 在页面中查找订单行(用于高亮)
-    const order = findOrderByOrderSn(orderSn);
+    // 在页面中查找订单行(用于高亮),用定制内容里的订单号
+    const realOrderSn = customData.subPurchaseOrderSnList?.[0] || "";
+    const order = findOrderByOrderSn(realOrderSn);
     if (order) {
       order.row.style.backgroundColor = "#d4edda";
       setTimeout(() => {
