@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Temu订单扫码助手",
+  "version": "2.6.0",
+  "description": "扫码枪快速查看订单定制内容",
+  "permissions": ["activeTab", "storage"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://agentseller.temu.com/stock/fully-mgt/order-manage-custom*",
+        "https://agentseller.temu.com/main/customize-goods*"
+      ],
+      "js": ["interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://agentseller.temu.com/stock/fully-mgt/order-manage-custom*"
+      ],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
