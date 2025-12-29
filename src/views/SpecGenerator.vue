@@ -64,62 +64,72 @@
             </div>
           </div>
 
-          <!-- 位置模式：添加水印按钮 -->
+          <!-- 位置模式：水印配置 -->
           <div v-else>
-            <div class="flex gap-2 mb-4">
-              <button @click="addText" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-                添加文字
-              </button>
-              <button @click="triggerWatermarkUpload" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded">
-                添加图片
-              </button>
+            <!-- 水印类型选择 -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">水印类型</label>
+              <select v-model="positionWatermarkType" class="w-full p-2 border border-gray-300 rounded text-sm">
+                <option value="text">文字水印</option>
+                <option value="image">图片水印</option>
+              </select>
             </div>
-            <input ref="watermarkFileInput" type="file" accept="image/*" @change="handleWatermarkFileUpload" class="hidden" />
 
-            <!-- 文字编辑面板 -->
-            <div v-if="activeObject?.type === 'i-text'" class="space-y-4 p-4 border border-gray-200 rounded-lg mt-4">
-              <h3 class="text-md font-semibold">文字样式</h3>
+            <!-- 文字水印配置 -->
+            <div v-if="positionWatermarkType === 'text'" class="space-y-4">
               <div>
-                <label class="block text-sm font-medium">艺术字样式</label>
-                <select v-model="selectedPreset" class="w-full p-1 border border-gray-300 rounded">
+                <label class="block text-sm font-medium mb-2">水印文字（每行一个）</label>
+                <textarea
+                  v-model="positionTextList"
+                  placeholder="输入水印文字，每行一个&#10;例如：&#10;促销&#10;新品&#10;限时"
+                  rows="5"
+                  class="w-full p-2 border border-gray-300 rounded text-sm"
+                ></textarea>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-2">艺术字样式</label>
+                <select v-model="positionTextPreset" class="w-full p-2 border border-gray-300 rounded">
                   <option v-for="preset in stylePresets" :key="preset.name" :value="preset.name">
                     {{ preset.name }}
                   </option>
                 </select>
               </div>
+
               <div>
-                <label class="block text-sm font-medium">颜色</label>
-                <input type="color" v-model="essentialProps.fill" class="w-full h-8 p-1 border-none rounded" />
+                <label class="block text-sm font-medium mb-2">颜色</label>
+                <input type="color" v-model="positionTextColor" class="w-full h-10 p-1 border border-gray-300 rounded" />
               </div>
+
               <div>
-                <label class="block text-sm font-medium">字号</label>
-                <input type="number" v-model.number="essentialProps.fontSize" class="w-full p-1 border border-gray-300 rounded" />
+                <label class="block text-sm font-medium mb-2">透明度</label>
+                <input type="range" v-model.number="positionTextOpacity" min="0" max="1" step="0.05" class="w-full" />
+                <span class="text-xs text-gray-500">{{ Math.round(positionTextOpacity * 100) }}%</span>
               </div>
-              <div>
-                <label class="block text-sm font-medium">透明度</label>
-                <input type="range" v-model.number="essentialProps.opacity" min="0" max="1" step="0.05" class="w-full" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium">对齐</label>
-                <select v-model="essentialProps.textAlign" class="w-full p-1 border border-gray-300 rounded">
-                  <option value="left">左对齐</option>
-                  <option value="center">居中</option>
-                  <option value="right">右对齐</option>
-                  <option value="justify">两端对齐</option>
-                </select>
-              </div>
+
+              <p class="text-xs text-gray-500 mt-4">💡 在右侧预览区域拖拽调整文字位置和大小</p>
             </div>
 
-            <!-- 图片水印编辑面板 -->
-            <div v-if="activeObject?.type === 'image'" class="space-y-4 p-4 border border-gray-200 rounded-lg mt-4">
-              <h3 class="text-md font-semibold">图片水印样式</h3>
-              <div>
-                <label class="block text-sm font-medium">透明度</label>
-                <input type="range" min="0" max="1" step="0.05" v-model.number="imageWatermarkOpacity" class="w-full" />
+            <!-- 图片水印配置 -->
+            <div v-else>
+              <div class="flex gap-2 mb-4">
+                <button @click="triggerWatermarkUpload" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded">
+                  添加图片
+                </button>
               </div>
-              <div>
-                <label class="block text-sm font-medium">缩放</label>
-                <input type="range" min="0.1" max="3" step="0.1" v-model.number="imageWatermarkScale" class="w-full" />
+              <input ref="watermarkFileInput" type="file" accept="image/*" @change="handleWatermarkFileUpload" class="hidden" />
+
+              <!-- 图片水印编辑面板 -->
+              <div v-if="activeObject?.type === 'image'" class="space-y-4 p-4 border border-gray-200 rounded-lg mt-4">
+                <h3 class="text-md font-semibold">图片水印样式</h3>
+                <div>
+                  <label class="block text-sm font-medium">透明度</label>
+                  <input type="range" min="0" max="1" step="0.05" v-model.number="imageWatermarkOpacity" class="w-full" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium">缩放</label>
+                  <input type="range" min="0.1" max="3" step="0.1" v-model.number="imageWatermarkScale" class="w-full" />
+                </div>
               </div>
             </div>
           </div>
@@ -154,16 +164,18 @@
             :disabled="isGenerating || backgroundImages.length === 0 || !canGenerate"
             class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded disabled:bg-gray-400"
           >
-            {{ isGenerating ? '正在生成...' : `生成并下载 (${backgroundImages.length}张)` }}
+            {{ isGenerating ? '正在生成...' : `生成并下载 (${totalOutputCount}张)` }}
           </button>
           <p v-if="backgroundImages.length === 0" class="text-xs text-gray-500 mt-2 text-center">请先上传背景图片</p>
-          <p v-else-if="!canGenerate" class="text-xs text-gray-500 mt-2 text-center">请先{{ watermarkMode === 'tile' ? '输入水印文字' : '添加水印' }}</p>
+          <p v-else-if="!canGenerate" class="text-xs text-gray-500 mt-2 text-center">
+            请先{{ watermarkMode === 'tile' ? '输入水印文字' : (positionWatermarkType === 'text' ? '输入水印文字' : '添加图片水印') }}
+          </p>
         </div>
 
       </div>
 
       <!-- Center Panel: Canvas/Preview -->
-      <div class="md:col-span-8 rounded-lg shadow-inner flex items-center justify-center p-4 min-h-[600px]"
+      <div class="md:col-span-8 rounded-lg shadow-inner flex items-center justify-center p-4"
            :style="watermarkMode === 'tile' ? 'background-color: #f9fafb;' : 'background: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc); background-size: 20px 20px; background-position: 0 0, 10px 10px; background-color: #f0f0f0;'">
 
         <!-- 平铺模式预览 -->
@@ -176,10 +188,17 @@
 
         <!-- 位置模式预览 -->
         <div v-else class="text-center">
-          <div style="display: inline-block; border: 2px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <!-- 文字水印预览 -->
+          <div v-if="positionWatermarkType === 'text'" style="display: inline-block; border: 2px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <canvas ref="positionTextPreviewCanvas"></canvas>
+          </div>
+          <!-- 图片水印预览 -->
+          <div v-else style="display: inline-block; border: 2px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <canvas ref="canvasEl"></canvas>
           </div>
-          <p class="text-sm text-gray-600 mt-2">透明画布 - 拖动调整水印位置</p>
+          <p class="text-sm text-gray-600 mt-2">
+            {{ positionWatermarkType === 'text' ? '拖拽调整文字位置' : '透明画布 - 拖动调整水印位置' }}
+          </p>
         </div>
       </div>
     </div>
@@ -187,15 +206,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, reactive, watch, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
 import * as fabric from 'fabric';
 import JSZip from 'jszip';
 
 const canvasEl = ref(null);
 const tilePreviewCanvas = ref(null);
+const positionTextPreviewCanvas = ref(null);
 const watermarkFileInput = ref(null);
 let fabricCanvas = null;
+let textFabricCanvas = null; // 文字水印专用画布
 const activeObject = ref(null);
+const textActiveObject = ref(null); // 文字水印画布的活动对象
 
 // 背景图片列表
 const backgroundImages = ref([]);
@@ -211,13 +233,38 @@ const tileFontSize = ref(40);
 const tileOpacity = ref(0.3);
 const tileRotation = ref(-45);
 
+// 位置模式数据
+const positionWatermarkType = ref('text'); // 'text' | 'image'
+const positionTextList = ref(''); // 多行文字输入
+const positionTextPreset = ref('普通字体');
+const positionTextColor = ref('#000000');
+const positionTextFontSize = ref(30);
+const positionTextOpacity = ref(1);
+
 // 判断是否可以生成
 const canGenerate = computed(() => {
   if (watermarkMode.value === 'tile') {
     return tileWatermarkText.value.trim() !== '';
   } else {
-    return fabricCanvas && fabricCanvas.getObjects().length > 0;
+    // 位置模式：文字水印需要有输入，图片水印需要有画布对象
+    if (positionWatermarkType.value === 'text') {
+      return positionTextList.value.trim() !== '';
+    } else {
+      return fabricCanvas && fabricCanvas.getObjects().length > 0;
+    }
   }
+});
+
+// 计算实际生成的图片数量
+const totalOutputCount = computed(() => {
+  const bgCount = backgroundImages.value.length;
+  if (bgCount === 0) return 0;
+  // 位置文字模式：背景图数量 × 文字行数
+  if (watermarkMode.value === 'position' && positionWatermarkType.value === 'text') {
+    const textLines = positionTextList.value.split('\n').filter(line => line.trim());
+    return bgCount * Math.max(textLines.length, 1);
+  }
+  return bgCount;
 });
 
 // --- Data for Presets ---
@@ -227,8 +274,6 @@ const stylePresets = ref([
     options: {
       fontFamily: 'sans-serif',
       fontWeight: 'normal',
-      fontStyle: 'normal',
-      underline: false,
       fill: '#000000',
       stroke: null,
       strokeWidth: 0,
@@ -236,83 +281,148 @@ const stylePresets = ref([
     }
   },
   {
-    name: '现代粗体',
+    name: '粗体黑色',
     options: {
-      fontFamily: 'Montserrat',
+      fontFamily: 'Arial Black, sans-serif',
       fontWeight: 'bold',
-      fontStyle: 'normal',
-      underline: false,
-      fill: '#333333',
-      stroke: null,
-      strokeWidth: 0,
-      shadow: 'rgba(0,0,0,0.2) 2px 2px 3px',
-    }
-  },
-  {
-    name: '优雅衬线',
-    options: {
-      fontFamily: 'Playfair Display',
-      fontWeight: 'normal',
-      fontStyle: 'normal',
-      underline: false,
-      fill: '#4A4A4A',
+      fill: '#000000',
       stroke: null,
       strokeWidth: 0,
       shadow: null,
     }
   },
   {
-    name: '折扣标签',
+    name: '霓虹发光',
     options: {
-      fontFamily: 'Lobster',
-      fontWeight: 'normal',
-      fontStyle: 'normal',
-      underline: false,
-      fill: '#FF0000',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      fill: '#00FFFF',
       stroke: '#FFFFFF',
-      strokeWidth: 2,
-      shadow: 'rgba(0,0,0,0.3) 3px 3px 5px',
+      strokeWidth: 1,
+      shadow: '0 0 10px #00FFFF, 0 0 20px #00FFFF, 0 0 30px #00FFFF',
     }
   },
   {
-    name: '简洁描边',
+    name: '金色渐变',
     options: {
-      fontFamily: 'Open Sans',
+      fontFamily: 'Georgia, serif',
       fontWeight: 'bold',
-      fontStyle: 'normal',
-      underline: false,
+      fill: '#FFD700',
+      stroke: '#B8860B',
+      strokeWidth: 2,
+      shadow: '2px 2px 4px rgba(0,0,0,0.5)',
+    }
+  },
+  {
+    name: '火焰红',
+    options: {
+      fontFamily: 'Impact, sans-serif',
+      fontWeight: 'normal',
+      fill: '#FF4500',
+      stroke: '#FFD700',
+      strokeWidth: 2,
+      shadow: '0 0 10px #FF4500, 0 0 20px #FF0000',
+    }
+  },
+  {
+    name: '冰蓝',
+    options: {
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      fill: '#87CEEB',
+      stroke: '#FFFFFF',
+      strokeWidth: 2,
+      shadow: '0 0 15px #00BFFF, 0 0 25px #87CEEB',
+    }
+  },
+  {
+    name: '立体浮雕',
+    options: {
+      fontFamily: 'Arial Black, sans-serif',
+      fontWeight: 'bold',
+      fill: '#FFFFFF',
+      stroke: '#333333',
+      strokeWidth: 3,
+      shadow: '3px 3px 0 #666666, 6px 6px 0 #999999',
+    }
+  },
+  {
+    name: '描边镂空',
+    options: {
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      fill: 'transparent',
+      stroke: '#FF0000',
+      strokeWidth: 3,
+      shadow: null,
+    }
+  },
+  {
+    name: '促销爆款',
+    options: {
+      fontFamily: 'Microsoft YaHei, sans-serif',
+      fontWeight: 'bold',
+      fill: '#FFFF00',
+      stroke: '#FF0000',
+      strokeWidth: 4,
+      shadow: '3px 3px 6px rgba(0,0,0,0.6)',
+    }
+  },
+  {
+    name: '清新绿',
+    options: {
+      fontFamily: 'Verdana, sans-serif',
+      fontWeight: 'bold',
+      fill: '#32CD32',
+      stroke: '#FFFFFF',
+      strokeWidth: 2,
+      shadow: '2px 2px 4px rgba(0,0,0,0.3)',
+    }
+  },
+  {
+    name: '紫色梦幻',
+    options: {
+      fontFamily: 'Georgia, serif',
+      fontWeight: 'bold',
+      fill: '#9932CC',
+      stroke: '#FFB6C1',
+      strokeWidth: 2,
+      shadow: '0 0 15px #9932CC, 0 0 25px #DA70D6',
+    }
+  },
+  {
+    name: '简约白描',
+    options: {
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'normal',
       fill: '#FFFFFF',
       stroke: '#000000',
       strokeWidth: 1,
       shadow: null,
     }
-  }
+  },
 ]);
 
-const selectedPreset = ref(stylePresets.value[0].name);
-
 // --- Data for other controls ---
-const essentialProps = reactive({
-  fontSize: 40,
-  opacity: 1,
-  textAlign: 'left',
-  fill: '#000000',
-});
-
 const imageWatermarkOpacity = ref(1);
 const imageWatermarkScale = ref(1);
 
 const isGenerating = ref(false);
 
 // --- Lifecycle Hooks ---
-onMounted(() => {
+onMounted(async () => {
   // 初始化平铺预览
   updateTilePreview();
+  // 初始化位置文字预览
+  await updatePositionTextPreview();
 });
 
 onBeforeUnmount(() => {
   if (fabricCanvas) {
     fabricCanvas.dispose();
+  }
+  if (textFabricCanvas) {
+    textFabricCanvas.dispose();
   }
 });
 
@@ -381,52 +491,209 @@ const updateTilePreview = () => {
   }
 };
 
+// 更新位置文字预览 - 使用 Fabric.js 画布
+const updatePositionTextPreview = async (savedRelativePosition = null) => {
+  if (!positionTextPreviewCanvas.value) return;
+
+  // 销毁旧画布
+  if (textFabricCanvas) {
+    textFabricCanvas.dispose();
+    textFabricCanvas = null;
+  }
+
+  // 获取文字列表
+  const textLines = positionTextList.value.split('\n').filter(line => line.trim());
+  const text = textLines.length > 0 ? textLines[0] : null;
+
+  // 如果有背景图，使用第一张背景图
+  if (backgroundImages.value.length > 0) {
+    // 读取背景图文件
+    const imageData = await readFileAsDataURL(backgroundImages.value[0]);
+    const img = await loadImage(imageData);
+
+    // 计算画布尺寸(最大600x600,等比缩放)
+    const maxSize = 600;
+    const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+    const canvasWidth = img.width * scale;
+    const canvasHeight = img.height * scale;
+
+    // 初始化 Fabric.js 画布
+    textFabricCanvas = new fabric.Canvas(positionTextPreviewCanvas.value, {
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+
+    // Fabric.js v6: fromURL 返回 Promise
+    const bgImg = await fabric.Image.fromURL(imageData);
+    bgImg.scaleToWidth(canvasWidth);
+    bgImg.scaleToHeight(canvasHeight);
+
+    // Fabric.js v6: 直接设置 backgroundImage 属性
+    textFabricCanvas.backgroundImage = bgImg;
+    textFabricCanvas.renderAll();
+
+    // 如果有文字,添加文字对象
+    if (text) {
+      addTextToCanvas(text, savedRelativePosition);
+    }
+  } else {
+    // 没有背景图也没有文字,不初始化画布
+    if (!text) return;
+
+    // 有文字但没有背景图,使用默认尺寸
+    textFabricCanvas = new fabric.Canvas(positionTextPreviewCanvas.value, {
+      width: 600,
+      height: 600,
+      backgroundColor: '#f0f0f0',
+    });
+
+    addTextToCanvas(text, savedRelativePosition);
+  }
+};
+
+// 在画布上添加文字对象(支持恢复相对位置)
+const addTextToCanvas = (text, savedRelativePosition = null) => {
+  if (!textFabricCanvas) return;
+
+  // 获取样式配置
+  const preset = stylePresets.value.find(p => p.name === positionTextPreset.value);
+  const opts = preset?.options || {};
+
+  // 计算文字位置(如果有保存的相对位置,使用该位置;否则居中)
+  const left = savedRelativePosition
+    ? textFabricCanvas.width * savedRelativePosition.relativeX
+    : textFabricCanvas.width / 2;
+  const top = savedRelativePosition
+    ? textFabricCanvas.height * savedRelativePosition.relativeY
+    : textFabricCanvas.height / 2;
+
+  // 构建阴影对象
+  let shadowObj = null;
+  if (opts.shadow) {
+    shadowObj = new fabric.Shadow(opts.shadow);
+  }
+
+  const textObj = new fabric.IText(text, {
+    left,
+    top,
+    originX: 'center',
+    originY: 'center',
+    fontFamily: opts.fontFamily || 'sans-serif',
+    fontWeight: opts.fontWeight || 'normal',
+    fontSize: positionTextFontSize.value,
+    fill: opts.fill || positionTextColor.value,
+    stroke: opts.stroke || null,
+    strokeWidth: opts.strokeWidth || 0,
+    shadow: shadowObj,
+    opacity: positionTextOpacity.value,
+  });
+
+  textFabricCanvas.add(textObj);
+  textFabricCanvas.setActiveObject(textObj);
+  textFabricCanvas.renderAll();
+
+  // 监听对象选择
+  textFabricCanvas.on('selection:created', (e) => {
+    textActiveObject.value = e.selected[0];
+  });
+  textFabricCanvas.on('selection:updated', (e) => {
+    textActiveObject.value = e.selected[0];
+  });
+  textFabricCanvas.on('selection:cleared', () => {
+    textActiveObject.value = null;
+  });
+};
+
 // 监听平铺模式参数变化
 watch([tileWatermarkText, tileSelectedPreset, tileColor, tileFontSize, tileOpacity, tileRotation], () => {
   updateTilePreview();
 });
 
+// 监听位置文字模式参数变化(只更新样式,不重新初始化画布)
+watch([positionTextPreset, positionTextColor, positionTextFontSize, positionTextOpacity], () => {
+  if (textFabricCanvas && textFabricCanvas.getObjects().length > 0) {
+    const textObj = textFabricCanvas.getObjects()[0];
+    const preset = stylePresets.value.find(p => p.name === positionTextPreset.value);
+    const opts = preset?.options || {};
+
+    // 构建阴影对象
+    let shadowObj = null;
+    if (opts.shadow) {
+      shadowObj = new fabric.Shadow(opts.shadow);
+    }
+
+    textObj.set({
+      fontFamily: opts.fontFamily || 'sans-serif',
+      fontWeight: opts.fontWeight || 'normal',
+      fontSize: positionTextFontSize.value,
+      fill: opts.fill || positionTextColor.value,
+      stroke: opts.stroke || null,
+      strokeWidth: opts.strokeWidth || 0,
+      shadow: shadowObj,
+      opacity: positionTextOpacity.value,
+    });
+
+    textFabricCanvas.renderAll();
+  }
+});
+
+// 监听文字内容变化(需要重新初始化画布)
+watch(positionTextList, async () => {
+  // 保存相对位置
+  let savedRelativePosition = null;
+  if (textFabricCanvas && textFabricCanvas.getObjects().length > 0) {
+    const textObj = textFabricCanvas.getObjects()[0];
+    savedRelativePosition = {
+      relativeX: textObj.left / textFabricCanvas.width,
+      relativeY: textObj.top / textFabricCanvas.height,
+    };
+  }
+  await updatePositionTextPreview(savedRelativePosition);
+});
+
+// 监听背景图变化，更新预览(保留文字位置)
+watch(backgroundImages, async () => {
+  if (watermarkMode.value === 'position' && positionWatermarkType.value === 'text') {
+    // 保存当前文字对象的相对位置
+    let savedRelativePosition = null;
+    if (textFabricCanvas && textFabricCanvas.getObjects().length > 0) {
+      const textObj = textFabricCanvas.getObjects()[0];
+      savedRelativePosition = {
+        relativeX: textObj.left / textFabricCanvas.width,
+        relativeY: textObj.top / textFabricCanvas.height,
+      };
+    }
+
+    // 重新初始化画布(传入保存的相对位置,等待完成)
+    await updatePositionTextPreview(savedRelativePosition);
+  }
+});
+
 // 监听模式切换
-watch(watermarkMode, (newMode) => {
+watch(watermarkMode, async (newMode) => {
   if (newMode === 'tile') {
     setTimeout(() => updateTilePreview(), 100);
   } else if (newMode === 'position') {
-    setTimeout(() => initPositionCanvas(), 100);
+    if (positionWatermarkType.value === 'text') {
+      await updatePositionTextPreview();
+    } else {
+      setTimeout(() => initPositionCanvas(), 100);
+    }
+  }
+});
+
+// 监听位置模式水印类型切换
+watch(positionWatermarkType, async (newType) => {
+  if (watermarkMode.value === 'position') {
+    if (newType === 'text') {
+      await updatePositionTextPreview();
+    } else {
+      setTimeout(() => initPositionCanvas(), 100);
+    }
   }
 });
 
 // --- Watchers for Reactivity ---
-watch(selectedPreset, (presetName) => {
-  if (!activeObject.value || activeObject.value.type !== 'i-text') return;
-  const preset = stylePresets.value.find(p => p.name === presetName);
-  if (!preset) return;
-
-  const optionsToApply = { ...preset.options };
-
-  // Handle complex objects like gradient and shadow
-  if (typeof optionsToApply.fill === 'object' && optionsToApply.fill.type === 'linear') {
-    optionsToApply.fill = new fabric.Gradient(optionsToApply.fill);
-  }
-  if (typeof optionsToApply.shadow === 'string') {
-    optionsToApply.shadow = new fabric.Shadow(optionsToApply.shadow);
-  }
-
-  activeObject.value.set(optionsToApply);
-  fabricCanvas.renderAll();
-
-  essentialProps.fontSize = optionsToApply.fontSize || 40;
-  essentialProps.opacity = optionsToApply.opacity || 1;
-  essentialProps.textAlign = optionsToApply.textAlign || 'left';
-  essentialProps.fill = optionsToApply.fill;
-});
-
-watch(essentialProps, (props) => {
-  if (activeObject.value && activeObject.value.type === 'i-text') {
-    activeObject.value.set(props);
-    fabricCanvas.renderAll();
-  }
-});
-
 watch(imageWatermarkOpacity, (newOpacity) => {
   if (activeObject.value && activeObject.value.type === 'image') {
     activeObject.value.set('opacity', newOpacity);
@@ -442,38 +709,13 @@ watch(imageWatermarkScale, (newScale) => {
 });
 
 watch(activeObject, (obj) => {
-  if (obj) {
-    if (obj.type === 'i-text') {
-      essentialProps.fontSize = obj.get('fontSize');
-      essentialProps.opacity = obj.get('opacity');
-      essentialProps.textAlign = obj.get('textAlign');
-      essentialProps.fill = obj.get('fill');
-    } else if (obj.type === 'image') {
-      imageWatermarkOpacity.value = obj.get('opacity');
-      imageWatermarkScale.value = obj.get('scaleX');
-    }
+  if (obj && obj.type === 'image') {
+    imageWatermarkOpacity.value = obj.get('opacity');
+    imageWatermarkScale.value = obj.get('scaleX');
   }
 });
 
 // --- Component Methods ---
-const addText = () => {
-  // 确保画布已初始化
-  if (!fabricCanvas) {
-    initPositionCanvas();
-  }
-  if (!fabricCanvas) return;
-
-  const text = new fabric.IText('双击编辑', {
-    left: 50,
-    top: 50,
-    fontFamily: 'Roboto',
-    fill: '#000000',
-    fontSize: 40,
-  });
-  fabricCanvas.add(text);
-  fabricCanvas.setActiveObject(text);
-};
-
 const triggerWatermarkUpload = () => {
   watermarkFileInput.value?.click();
 };
@@ -566,8 +808,12 @@ const generateAndDownload = async () => {
       // 平铺模式：生成平铺水印
       await generateTiledWatermark(zip);
     } else {
-      // 位置模式：生成位置水印
-      await generatePositionWatermark(zip);
+      // 位置模式：根据水印类型生成
+      if (positionWatermarkType.value === 'text') {
+        await generatePositionTextWatermark(zip);
+      } else {
+        await generatePositionWatermark(zip);
+      }
     }
 
     // 生成并下载 ZIP
@@ -635,7 +881,98 @@ const generateTiledWatermark = async (zip) => {
   }
 };
 
-// 生成位置水印
+// 生成位置文字水印
+const generatePositionTextWatermark = async (zip) => {
+  // 获取文字列表
+  const textLines = positionTextList.value.split('\n').filter(line => line.trim());
+
+  // 从画布获取文字的相对位置
+  if (!textFabricCanvas || !textFabricCanvas.getObjects().length) {
+    alert('请先在预览区域调整文字位置');
+    return;
+  }
+
+  const textObj = textFabricCanvas.getObjects()[0];
+  const relativeX = textObj.left / textFabricCanvas.width;
+  const relativeY = textObj.top / textFabricCanvas.height;
+  // 从 Fabric 对象获取实际字体大小和缩放比例
+  const baseFontSize = textObj.fontSize || 60;
+  const userScale = textObj.scaleX || 1;
+
+  // 获取预设样式
+  const preset = stylePresets.value.find(p => p.name === positionTextPreset.value);
+  const opts = preset?.options || {};
+
+  for (let i = 0; i < backgroundImages.value.length; i++) {
+    const file = backgroundImages.value[i];
+    const imageData = await readFileAsDataURL(file);
+    const bgImg = await loadImage(imageData);
+
+    // 为每条文字生成一张图片
+    for (let j = 0; j < textLines.length; j++) {
+      const text = textLines[j];
+
+      // 创建画布
+      const canvas = document.createElement('canvas');
+      canvas.width = bgImg.width;
+      canvas.height = bgImg.height;
+      const ctx = canvas.getContext('2d');
+
+      // 绘制背景图片
+      ctx.drawImage(bgImg, 0, 0);
+
+      // 计算缩放比例（实际图片尺寸 / 预览画布尺寸）
+      const scaleRatio = canvas.width / textFabricCanvas.width;
+
+      // 使用相对位置计算实际位置
+      const x = canvas.width * relativeX;
+      const y = canvas.height * relativeY;
+
+      // 按比例缩放字体大小（从 Fabric 对象获取实际大小）
+      const scaledFontSize = Math.round(baseFontSize * scaleRatio * userScale);
+
+      // 设置文字样式
+      ctx.font = `${opts.fontWeight || 'normal'} ${scaledFontSize}px ${opts.fontFamily || 'sans-serif'}`;
+      ctx.globalAlpha = positionTextOpacity.value;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // 绘制阴影（如果有），按比例缩放阴影值
+      if (opts.shadow) {
+        // 解析阴影字符串，取第一个阴影
+        const shadowMatch = opts.shadow.match(/(-?\d+)px\s+(-?\d+)px\s+(\d+)px\s+(#[0-9A-Fa-f]+|rgba?\([^)]+\))/);
+        if (shadowMatch) {
+          ctx.shadowOffsetX = parseInt(shadowMatch[1]) * scaleRatio;
+          ctx.shadowOffsetY = parseInt(shadowMatch[2]) * scaleRatio;
+          ctx.shadowBlur = parseInt(shadowMatch[3]) * scaleRatio;
+          ctx.shadowColor = shadowMatch[4];
+        }
+      }
+
+      // 绘制描边（如果有），按比例缩放描边宽度
+      if (opts.stroke && opts.strokeWidth > 0) {
+        ctx.strokeStyle = opts.stroke;
+        ctx.lineWidth = opts.strokeWidth * scaleRatio;
+        ctx.strokeText(text, x, y);
+      }
+
+      // 绘制填充
+      ctx.fillStyle = opts.fill || positionTextColor.value;
+      if (opts.fill !== 'transparent') {
+        ctx.fillText(text, x, y);
+      }
+
+      // 导出为图片
+      const dataUrl = canvas.toDataURL('image/png', 1);
+      const blob = dataURLtoBlob(dataUrl);
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const fileName = `${baseName}_${text}_水印.png`;
+      zip.file(fileName, blob);
+    }
+  }
+};
+
+// 生成位置水印（图片水印）
 const generatePositionWatermark = async (zip) => {
   // 将当前水印导出为图片
   const watermarkDataUrl = fabricCanvas.toDataURL({
