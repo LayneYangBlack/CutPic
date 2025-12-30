@@ -274,7 +274,7 @@ const stylePresets = ref([
     options: {
       fontFamily: 'sans-serif',
       fontWeight: 'normal',
-      fill: '#000000',
+      fill: null,
       stroke: null,
       strokeWidth: 0,
       shadow: null,
@@ -581,7 +581,7 @@ const addTextToCanvas = (text, savedRelativePosition = null) => {
     fontFamily: opts.fontFamily || 'sans-serif',
     fontWeight: opts.fontWeight || 'normal',
     fontSize: positionTextFontSize.value,
-    fill: opts.fill || positionTextColor.value,
+    fill: opts.fill || positionTextColor.value || '#000000',
     stroke: opts.stroke || null,
     strokeWidth: opts.strokeWidth || 0,
     shadow: shadowObj,
@@ -626,7 +626,7 @@ watch([positionTextPreset, positionTextColor, positionTextFontSize, positionText
       fontFamily: opts.fontFamily || 'sans-serif',
       fontWeight: opts.fontWeight || 'normal',
       fontSize: positionTextFontSize.value,
-      fill: opts.fill || positionTextColor.value,
+      fill: opts.fill || positionTextColor.value || '#000000',
       stroke: opts.stroke || null,
       strokeWidth: opts.strokeWidth || 0,
       shadow: shadowObj,
@@ -910,7 +910,8 @@ const generatePositionTextWatermark = async (zip) => {
 
     // 为每条文字生成一张图片
     for (let j = 0; j < textLines.length; j++) {
-      const text = textLines[j];
+      // 对于第一行，使用 Fabric 对象的实际文本（包含用户在预览区域的编辑）
+      const text = j === 0 ? textObj.text : textLines[j];
 
       // 创建画布
       const canvas = document.createElement('canvas');
@@ -931,11 +932,24 @@ const generatePositionTextWatermark = async (zip) => {
       // 按比例缩放字体大小（从 Fabric 对象获取实际大小）
       const scaledFontSize = Math.round(baseFontSize * scaleRatio * userScale);
 
+      // 获取文本对齐方式
+      const textAlign = textObj.textAlign || 'left';
+
       // 设置文字样式
       ctx.font = `${opts.fontWeight || 'normal'} ${scaledFontSize}px ${opts.fontFamily || 'sans-serif'}`;
       ctx.globalAlpha = positionTextOpacity.value;
-      ctx.textAlign = 'center';
+      ctx.textAlign = textAlign;
       ctx.textBaseline = 'middle';
+
+      // 计算绘制的 x 坐标（根据 textAlign 和对象宽度）
+      const scaledWidth = textObj.width * textObj.scaleX * scaleRatio;
+      let drawX = x;
+      if (textAlign === 'left') {
+        drawX = x - scaledWidth / 2;
+      } else if (textAlign === 'right') {
+        drawX = x + scaledWidth / 2;
+      }
+      // textAlign === 'center' 时，drawX = x（对象中心）
 
       // 绘制阴影（如果有），按比例缩放阴影值
       if (opts.shadow) {
@@ -949,24 +963,34 @@ const generatePositionTextWatermark = async (zip) => {
         }
       }
 
-      // 绘制描边（如果有），按比例缩放描边宽度
-      if (opts.stroke && opts.strokeWidth > 0) {
-        ctx.strokeStyle = opts.stroke;
-        ctx.lineWidth = opts.strokeWidth * scaleRatio;
-        ctx.strokeText(text, x, y);
-      }
+      // 处理多行文本
+      const lines = text.split('\n');
+      const lineHeight = scaledFontSize * 1.2;
+      const totalHeight = lines.length * lineHeight;
+      const startY = y - totalHeight / 2 + lineHeight / 2;
 
-      // 绘制填充
-      ctx.fillStyle = opts.fill || positionTextColor.value;
-      if (opts.fill !== 'transparent') {
-        ctx.fillText(text, x, y);
+      for (let k = 0; k < lines.length; k++) {
+        const lineY = startY + k * lineHeight;
+
+        // 绘制描边（如果有），按比例缩放描边宽度
+        if (opts.stroke && opts.strokeWidth > 0) {
+          ctx.strokeStyle = opts.stroke;
+          ctx.lineWidth = opts.strokeWidth * scaleRatio;
+          ctx.strokeText(lines[k], drawX, lineY);
+        }
+
+        // 绘制填充
+        ctx.fillStyle = opts.fill || positionTextColor.value || '#000000';
+        if (opts.fill !== 'transparent') {
+          ctx.fillText(lines[k], drawX, lineY);
+        }
       }
 
       // 导出为图片
       const dataUrl = canvas.toDataURL('image/png', 1);
       const blob = dataURLtoBlob(dataUrl);
       const baseName = file.name.replace(/\.[^/.]+$/, '');
-      const fileName = `${baseName}_${text}_水印.png`;
+      const fileName = `${baseName}_${textLines[j]}_水印.png`;
       zip.file(fileName, blob);
     }
   }
