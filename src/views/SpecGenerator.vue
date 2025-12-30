@@ -910,8 +910,8 @@ const generatePositionTextWatermark = async (zip) => {
 
     // 为每条文字生成一张图片
     for (let j = 0; j < textLines.length; j++) {
-      // 对于第一行，使用 Fabric 对象的实际文本（包含用户在预览区域的编辑）
-      const text = j === 0 ? textObj.text : textLines[j];
+      // 使用 Fabric 对象的实际文本（包含用户在预览区域的编辑，如换行等）
+      const text = textObj.text;
 
       // 创建画布
       const canvas = document.createElement('canvas');
