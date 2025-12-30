@@ -897,7 +897,9 @@ const generatePositionTextWatermark = async (zip) => {
   const relativeY = textObj.top / textFabricCanvas.height;
   // 从 Fabric 对象获取实际字体大小和缩放比例
   const baseFontSize = textObj.fontSize || 60;
-  const userScale = textObj.scaleX || 1;
+  const userScaleX = textObj.scaleX || 1;
+  const userScaleY = textObj.scaleY || 1;
+  const rotation = textObj.angle || 0; // 旋转角度（度）
 
   // 获取预设样式
   const preset = stylePresets.value.find(p => p.name === positionTextPreset.value);
@@ -930,7 +932,7 @@ const generatePositionTextWatermark = async (zip) => {
       const y = canvas.height * relativeY;
 
       // 按比例缩放字体大小（从 Fabric 对象获取实际大小）
-      const scaledFontSize = Math.round(baseFontSize * scaleRatio * userScale);
+      const scaledFontSize = Math.round(baseFontSize * scaleRatio * userScaleX);
 
       // 获取文本对齐方式
       const textAlign = textObj.textAlign || 'left';
@@ -942,35 +944,64 @@ const generatePositionTextWatermark = async (zip) => {
       ctx.textBaseline = 'middle';
 
       // 计算绘制的 x 坐标（根据 textAlign 和对象宽度）
-      const scaledWidth = textObj.width * textObj.scaleX * scaleRatio;
-      let drawX = x;
+      const scaledWidth = textObj.width * userScaleX * scaleRatio;
+      let drawX = 0; // 相对于旋转中心的 x 坐标
       if (textAlign === 'left') {
-        drawX = x - scaledWidth / 2;
+        drawX = -scaledWidth / 2;
       } else if (textAlign === 'right') {
-        drawX = x + scaledWidth / 2;
+        drawX = scaledWidth / 2;
       }
-      // textAlign === 'center' 时，drawX = x（对象中心）
-
-      // 绘制阴影（如果有），按比例缩放阴影值
-      if (opts.shadow) {
-        // 解析阴影字符串，取第一个阴影
-        const shadowMatch = opts.shadow.match(/(-?\d+)px\s+(-?\d+)px\s+(\d+)px\s+(#[0-9A-Fa-f]+|rgba?\([^)]+\))/);
-        if (shadowMatch) {
-          ctx.shadowOffsetX = parseInt(shadowMatch[1]) * scaleRatio;
-          ctx.shadowOffsetY = parseInt(shadowMatch[2]) * scaleRatio;
-          ctx.shadowBlur = parseInt(shadowMatch[3]) * scaleRatio;
-          ctx.shadowColor = shadowMatch[4];
-        }
-      }
+      // textAlign === 'center' 时，drawX = 0（对象中心）
 
       // 处理多行文本
       const lines = text.split('\n');
       const lineHeight = scaledFontSize * 1.2;
       const totalHeight = lines.length * lineHeight;
-      const startY = y - totalHeight / 2 + lineHeight / 2;
+      const startY = -totalHeight / 2 + lineHeight / 2; // 相对于旋转中心的起始 y 坐标
+
+      // 解析多个阴影（如果有）
+      const shadows = [];
+      if (opts.shadow) {
+        const shadowParts = opts.shadow.split(',');
+        for (const part of shadowParts) {
+          const shadowMatch = part.trim().match(/(-?\d+)px\s+(-?\d+)px\s+(\d+)px\s+(#[0-9A-Fa-f]+|rgba?\([^)]+\))/);
+          if (shadowMatch) {
+            shadows.push({
+              offsetX: parseInt(shadowMatch[1]) * scaleRatio,
+              offsetY: parseInt(shadowMatch[2]) * scaleRatio,
+              blur: parseInt(shadowMatch[3]) * scaleRatio,
+              color: shadowMatch[4]
+            });
+          }
+        }
+      }
+
+      // 保存画布状态
+      ctx.save();
+
+      // 移动到旋转中心点并旋转
+      ctx.translate(x, y);
+      ctx.rotate((rotation * Math.PI) / 180);
 
       for (let k = 0; k < lines.length; k++) {
         const lineY = startY + k * lineHeight;
+
+        // 绘制所有阴影层
+        for (const shadow of shadows) {
+          ctx.shadowOffsetX = shadow.offsetX;
+          ctx.shadowOffsetY = shadow.offsetY;
+          ctx.shadowBlur = shadow.blur;
+          ctx.shadowColor = shadow.color;
+          ctx.fillStyle = opts.fill || positionTextColor.value || '#000000';
+          if (opts.fill !== 'transparent') {
+            ctx.fillText(lines[k], drawX, lineY);
+          }
+        }
+
+        // 清除阴影设置
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.shadowBlur = 0;
 
         // 绘制描边（如果有），按比例缩放描边宽度
         if (opts.stroke && opts.strokeWidth > 0) {
@@ -985,6 +1016,9 @@ const generatePositionTextWatermark = async (zip) => {
           ctx.fillText(lines[k], drawX, lineY);
         }
       }
+
+      // 恢复画布状态
+      ctx.restore();
 
       // 导出为图片
       const dataUrl = canvas.toDataURL('image/png', 1);
