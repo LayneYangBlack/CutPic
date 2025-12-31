@@ -107,6 +107,15 @@
                 <span class="text-xs text-gray-500">{{ Math.round(positionTextOpacity * 100) }}%</span>
               </div>
 
+              <div>
+                <label class="block text-sm font-medium mb-2">文字对齐</label>
+                <select v-model="positionTextAlign" class="w-full p-2 border border-gray-300 rounded text-sm">
+                  <option value="left">居左</option>
+                  <option value="center">居中</option>
+                  <option value="right">居右</option>
+                </select>
+              </div>
+
               <p class="text-xs text-gray-500 mt-4">💡 在右侧预览区域拖拽调整文字位置和大小</p>
             </div>
 
@@ -240,6 +249,7 @@ const positionTextPreset = ref('普通字体');
 const positionTextColor = ref('#000000');
 const positionTextFontSize = ref(30);
 const positionTextOpacity = ref(1);
+const positionTextAlign = ref('left'); // 文字对齐方式：left/center/right
 
 // 判断是否可以生成
 const canGenerate = computed(() => {
@@ -586,6 +596,7 @@ const addTextToCanvas = (text, savedRelativePosition = null) => {
     strokeWidth: opts.strokeWidth || 0,
     shadow: shadowObj,
     opacity: positionTextOpacity.value,
+    textAlign: positionTextAlign.value, // 设置文字对齐方式
   });
 
   textFabricCanvas.add(textObj);
@@ -610,7 +621,7 @@ watch([tileWatermarkText, tileSelectedPreset, tileColor, tileFontSize, tileOpaci
 });
 
 // 监听位置文字模式参数变化(只更新样式,不重新初始化画布)
-watch([positionTextPreset, positionTextColor, positionTextFontSize, positionTextOpacity], () => {
+watch([positionTextPreset, positionTextColor, positionTextFontSize, positionTextOpacity, positionTextAlign], () => {
   if (textFabricCanvas && textFabricCanvas.getObjects().length > 0) {
     const textObj = textFabricCanvas.getObjects()[0];
     const preset = stylePresets.value.find(p => p.name === positionTextPreset.value);
@@ -631,6 +642,7 @@ watch([positionTextPreset, positionTextColor, positionTextFontSize, positionText
       strokeWidth: opts.strokeWidth || 0,
       shadow: shadowObj,
       opacity: positionTextOpacity.value,
+      textAlign: positionTextAlign.value, // 更新文字对齐方式
     });
 
     textFabricCanvas.renderAll();
@@ -912,8 +924,49 @@ const generatePositionTextWatermark = async (zip) => {
 
     // 为每条文字生成一张图片
     for (let j = 0; j < textLines.length; j++) {
-      // 使用 Fabric 对象的实际文本（包含用户在预览区域的编辑，如换行等）
-      const text = textObj.text;
+      let text;
+
+      if (j === 0) {
+        // 第一条规格：使用预览区域的文本（保留用户编辑的换行）
+        text = textObj.text;
+      } else {
+        // 其他规格：应用第一条的换行模式
+        text = textLines[j];
+
+        // 应用第一条规格的换行模式
+        const firstSpecText = textObj.text; // 第一条规格（预览区域的文本）
+        const firstSpecLines = firstSpecText.split('\n');
+
+        // 如果第一条规格有换行，分析换行模式
+        if (firstSpecLines.length > 1) {
+          // 计算第一条规格的换行间隔（每段的字符数）
+          const lineBreakPattern = firstSpecLines.map(line => line.length);
+
+          // 将换行模式应用到当前规格
+          const currentText = textLines[j];
+          const newLines = [];
+          let currentIndex = 0;
+
+          for (let k = 0; k < lineBreakPattern.length && currentIndex < currentText.length; k++) {
+            const charsToTake = lineBreakPattern[k];
+            newLines.push(currentText.substring(currentIndex, currentIndex + charsToTake));
+            currentIndex += charsToTake;
+          }
+
+          // 如果还有剩余字符，追加到最后一行（而不是新增一行，保持行数一致）
+          if (currentIndex < currentText.length) {
+            if (newLines.length > 0) {
+              // 追加到最后一行
+              newLines[newLines.length - 1] += currentText.substring(currentIndex);
+            } else {
+              // 如果没有行，创建一行
+              newLines.push(currentText.substring(currentIndex));
+            }
+          }
+
+          text = newLines.join('\n');
+        }
+      }
 
       // 创建画布
       const canvas = document.createElement('canvas');
