@@ -365,9 +365,18 @@ const generateLayout = () => {
     const mmToPx = (mm) => (mm / MM_PER_INCH) * DPI;
 
     const canvas = a4Canvas.value;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", {
+        alpha: true,
+        colorSpace: "srgb",
+        willReadFrequently: false,
+    });
     canvas.width = mmToPx(A4_WIDTH_MM);
     canvas.height = mmToPx(A4_HEIGHT_MM);
+
+    // 统一图像平滑设置
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
