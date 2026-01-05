@@ -297,7 +297,8 @@ const croppedImageSrc = ref(null);
 const a4Canvas = ref(null);
 const cropper = ref(null);
 const printableImage = ref(null);
-const cropperBgColor = ref("#f3f4f6");
+const cropperBgColor = ref("#ffffff"); // 裁切背景色默认白色
+const isGenerating = ref(false); // 防止重复生成导致绘制叠加
 
 const { cropHistory, addCrop, removeCrop, clearHistory } = useCropHistory(); // Use composable
 
@@ -376,6 +377,14 @@ const generateLayout = () => {
         alert("请先确认裁切图片！");
         return;
     }
+
+    // CRITICAL: 防止异步绘制竞争条件导致多次叠加
+    if (isGenerating.value) {
+        console.warn("正在生成排版，请稍候...");
+        return;
+    }
+    isGenerating.value = true;
+
     // New: Add to history when layout is generated
     addCrop(croppedImageSrc.value, { size: selectedSize.value });
 
@@ -386,17 +395,27 @@ const generateLayout = () => {
     const mmToPx = (mm) => (mm / MM_PER_INCH) * DPI;
 
     const canvas = a4Canvas.value;
+
+    // CRITICAL: 完全重置Canvas，避免状态累积导致色差
+    // 设置宽高会清空画布并重置大部分context状态
+    canvas.width = mmToPx(A4_WIDTH_MM);
+    canvas.height = mmToPx(A4_HEIGHT_MM);
+
+    // 重新获取context（第一次调用后会复用，但我们需要重置所有状态）
     const ctx = canvas.getContext("2d", {
         alpha: true,
         colorSpace: "srgb",
         willReadFrequently: false,
     });
-    canvas.width = mmToPx(A4_WIDTH_MM);
-    canvas.height = mmToPx(A4_HEIGHT_MM);
 
-    // 统一图像平滑设置
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    // 显式重置所有关键context状态，确保每次绘制一致
+    ctx.imageSmoothingEnabled = true; // 启用图像平滑，提升缩放质量
+    ctx.imageSmoothingQuality = "high"; // 使用高质量平滑算法
+    ctx.globalAlpha = 1.0; // 重置透明度
+    ctx.globalCompositeOperation = "source-over"; // 重置合成模式
+    ctx.filter = "none"; // 重置滤镜
+    ctx.shadowBlur = 0; // 重��阴影
+    ctx.shadowColor = "transparent";
 
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -519,6 +538,14 @@ const generateLayout = () => {
             }
             if (drawnCount >= maxToDraw) break;
         }
+
+        // CRITICAL: 绘制完成后释放锁
+        isGenerating.value = false;
+    };
+    img.onerror = () => {
+        console.error("Failed to load cropped image for layout generation");
+        alert("图片加载失败，请重试！");
+        isGenerating.value = false; // 错误时也要释放锁
     };
     img.src = croppedImageSrc.value;
 };
@@ -567,6 +594,9 @@ canvas {
     @page {
         margin: 0;
         size: A4;
+        /* 强制使用精确颜色，防止打印机自动调整色彩 */
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
     body * {
         visibility: hidden;
@@ -574,6 +604,9 @@ canvas {
     .printable-area,
     .printable-area * {
         visibility: visible;
+        /* 确保打印区域也使用精确颜色 */
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
     .printable-area {
         position: absolute;
