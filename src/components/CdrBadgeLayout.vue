@@ -62,7 +62,6 @@
                             />
                         </div>
                     </div>
-
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
@@ -226,6 +225,50 @@
                     alt="Cropped Image"
                 />
             </div>
+
+            <!-- 裁剪历史 -->
+            <div
+                v-if="cropHistory.length > 0"
+                class="p-4 border rounded-lg bg-white shadow-sm"
+            >
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">裁剪历史</h2>
+                    <button
+                        @click="clearHistory"
+                        class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                    >
+                        清空历史
+                    </button>
+                </div>
+                <div
+                    class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4"
+                >
+                    <div
+                        v-for="item in cropHistory"
+                        :key="item.id"
+                        class="relative group"
+                    >
+                        <img
+                            :src="item.croppedImageSrc"
+                            class="w-full h-auto rounded-full border-2 border-gray-300 group-hover:border-blue-500 cursor-pointer"
+                            @click="
+                                croppedImageSrc = item.croppedImageSrc;
+                                selectedSize = item.metadata.size;
+                            "
+                            :title="`裁剪于: ${new Date(item.timestamp).toLocaleString()} 尺寸: ${item.metadata.size}mm`"
+                        />
+                        <div class="text-center text-xs text-gray-600 mt-1">
+                            {{ item.metadata.size }}mm
+                        </div>
+                        <button
+                            @click="removeCrop(item.id)"
+                            class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        >
+                            &times;
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Right Panel: A4 Preview -->
@@ -265,6 +308,7 @@
 <script setup>
 import { ref, onUnmounted } from "vue";
 import CustomCropper from "./CustomCropper.vue";
+import { useCropHistory } from "../composables/useCropHistory.js";
 
 // --- State ---
 const sizeMap = {
@@ -294,6 +338,9 @@ const cropper = ref(null);
 const printableImage = ref(null);
 const cropperBgColor = ref("#ffffff"); // 裁切背景色默认白色
 const isGenerating = ref(false); // 防止重复生成导致绘制叠加
+
+// 历史记录功能
+const { cropHistory, addCrop, removeCrop, clearHistory } = useCropHistory();
 
 // --- Methods ---
 const handleImageUpload = (event) => {
@@ -365,6 +412,9 @@ const generateLayout = () => {
         return;
     }
     isGenerating.value = true;
+
+    // 添加到历史记录
+    addCrop(croppedImageSrc.value, { size: selectedSize.value });
 
     const DPI = 300;
     const MM_PER_INCH = 25.4;
@@ -488,6 +538,8 @@ const generateLayout = () => {
     // Calculate spacing to center the layout
     const totalBadgesWidth = cols * outerDiaPx + (cols - 1) * spacingHPx;
     const totalBadgesHeight = rows * outerDiaPx + (rows - 1) * spacingVPx;
+
+    // 所有尺寸统一减去allowedOverflow，确保位置正确（修复32mm往右下偏移问题）
     const startX =
         marginLeftPx +
         edgePaddingHPx -
@@ -506,23 +558,7 @@ const generateLayout = () => {
                 const x = startX + c * (outerDiaPx + spacingHPx);
                 const y = startY + r * (outerDiaPx + spacingVPx);
 
-                // 1. Draw dashed outer circle
-                ctx.save();
-                ctx.strokeStyle = "black";
-                ctx.lineWidth = 1;
-                ctx.setLineDash([4, 2]);
-                ctx.beginPath();
-                ctx.arc(
-                    x + outerDiaPx / 2,
-                    y + outerDiaPx / 2,
-                    outerDiaPx / 2,
-                    0,
-                    Math.PI * 2,
-                );
-                ctx.stroke();
-                ctx.restore();
-
-                // 2. Draw inner image, clipped to a circle
+                // Draw inner image, clipped to a circle
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(
