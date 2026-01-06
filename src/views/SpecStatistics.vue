@@ -25,7 +25,16 @@
         </div>
 
         <div v-if="!isLoading && statistics.length > 0" class="mt-6">
-          <h2 class="text-xl font-semibold mb-3">统计结果</h2>
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-xl font-semibold">统计结果</h2>
+            <button
+              @click="copyToClipboard"
+              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm flex items-center gap-2"
+            >
+              <span>📋</span>
+              <span>复制表格数据</span>
+            </button>
+          </div>
           <div class="mb-3 text-lg font-bold text-gray-800">
             <span>总计: </span>
             <span class="text-blue-600">{{ totalSum }}</span>
@@ -136,6 +145,22 @@ const handleFileUpload = (event) => {
       isLoading.value = false;
   };
   reader.readAsArrayBuffer(file);
+};
+
+// 复制表格数据到剪贴板（适合粘贴到Excel）
+const copyToClipboard = async () => {
+  try {
+    // 构建制表符分隔的文本（Excel格式），规格不包含mm后缀
+    const header = '规格\t总数量';
+    const rows = statistics.value.map(stat => `${stat.spec.replace('mm', '')}\t${stat.total}`).join('\n');
+    const textToCopy = `${header}\n${rows}`;
+
+    await navigator.clipboard.writeText(textToCopy);
+    alert('已复制到剪贴板！可以直接粘贴到Excel中。');
+  } catch (err) {
+    console.error('复制失败:', err);
+    alert('复制失败，请手动复制数据。');
+  }
 };
 
 const processData = (data) => {
