@@ -15,7 +15,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   src: { type: String, required: true },
-  backgroundColor: { type: String, default: '#f3f4f6' },
+  backgroundColor: { type: String, default: '#ffffff' },
 });
 
 const canvas = ref(null);
@@ -221,7 +221,15 @@ const crop = () => {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = cropSize;
     tempCanvas.height = cropSize;
-    const tempCtx = tempCanvas.getContext('2d');
+    const tempCtx = tempCanvas.getContext('2d', {
+        alpha: true,
+        colorSpace: 'srgb',
+        willReadFrequently: false
+    });
+
+    // 启用图像平滑，提升裁剪质量
+    tempCtx.imageSmoothingEnabled = true;
+    tempCtx.imageSmoothingQuality = 'high';
 
     // Create a circular clip on the temp canvas
     tempCtx.beginPath();

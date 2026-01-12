@@ -62,7 +62,6 @@
                             />
                         </div>
                     </div>
-
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
@@ -226,6 +225,50 @@
                     alt="Cropped Image"
                 />
             </div>
+
+            <!-- 裁剪历史 -->
+            <div
+                v-if="cropHistory.length > 0"
+                class="p-4 border rounded-lg bg-white shadow-sm"
+            >
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">裁剪历史</h2>
+                    <button
+                        @click="clearHistory"
+                        class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                    >
+                        清空历史
+                    </button>
+                </div>
+                <div
+                    class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4"
+                >
+                    <div
+                        v-for="item in cropHistory"
+                        :key="item.id"
+                        class="relative group"
+                    >
+                        <img
+                            :src="item.croppedImageSrc"
+                            class="w-full h-auto rounded-full border-2 border-gray-300 group-hover:border-blue-500 cursor-pointer"
+                            @click="
+                                croppedImageSrc = item.croppedImageSrc;
+                                selectedSize = item.metadata.size;
+                            "
+                            :title="`裁剪于: ${new Date(item.timestamp).toLocaleString()} 尺寸: ${item.metadata.size}mm`"
+                        />
+                        <div class="text-center text-xs text-gray-600 mt-1">
+                            {{ item.metadata.size }}mm
+                        </div>
+                        <button
+                            @click="removeCrop(item.id)"
+                            class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        >
+                            &times;
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Right Panel: A4 Preview -->
@@ -265,6 +308,7 @@
 <script setup>
 import { ref, onUnmounted } from "vue";
 import CustomCropper from "./CustomCropper.vue";
+import { useCropHistory } from "../composables/useCropHistory.js";
 
 // --- State ---
 const sizeMap = {
@@ -292,7 +336,11 @@ const croppedImageSrc = ref(null);
 const a4Canvas = ref(null);
 const cropper = ref(null);
 const printableImage = ref(null);
-const cropperBgColor = ref("#f3f4f6");
+const cropperBgColor = ref("#ffffff"); // 裁切背景色默认白色
+const isGenerating = ref(false); // 防止重复生成导致绘制叠加
+
+// 历史记录功能
+const { cropHistory, addCrop, removeCrop, clearHistory } = useCropHistory();
 
 // --- Methods ---
 const handleImageUpload = (event) => {
@@ -358,6 +406,16 @@ const generateLayout = () => {
         return;
     }
 
+    // CRITICAL: 防止异步绘制竞争条件导致多次叠加
+    if (isGenerating.value) {
+        console.warn("正在生成排版，请稍候...");
+        return;
+    }
+    isGenerating.value = true;
+
+    // 添加到历史记录
+    addCrop(croppedImageSrc.value, { size: selectedSize.value });
+
     const DPI = 300;
     const MM_PER_INCH = 25.4;
     const A4_WIDTH_MM = 210;
@@ -365,9 +423,28 @@ const generateLayout = () => {
     const mmToPx = (mm) => (mm / MM_PER_INCH) * DPI;
 
     const canvas = a4Canvas.value;
-    const ctx = canvas.getContext("2d");
+
+    // CRITICAL: 完全重置Canvas，避免状态累积
+    // 设置宽高会清空画布并重置大部分context状态
     canvas.width = mmToPx(A4_WIDTH_MM);
     canvas.height = mmToPx(A4_HEIGHT_MM);
+
+    // 重新获取context（第一次调用后会复用，但我们需要重置所有状态）
+    const ctx = canvas.getContext("2d", {
+        alpha: true,
+        colorSpace: "srgb",
+        willReadFrequently: false,
+    });
+
+    // 显式重置所有关键context状态，确保每次绘制一致
+    ctx.imageSmoothingEnabled = true; // 启用图像平滑，提升缩放质量
+    ctx.imageSmoothingQuality = "high"; // 使用高质量平滑算法
+    ctx.globalAlpha = 1.0; // 重置透明度
+    ctx.globalCompositeOperation = "source-over"; // 重置合成模式
+    ctx.filter = "none"; // 重置滤镜
+    ctx.shadowBlur = 0; // 重置阴影
+    ctx.shadowColor = "transparent";
+
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -461,6 +538,8 @@ const generateLayout = () => {
     // Calculate spacing to center the layout
     const totalBadgesWidth = cols * outerDiaPx + (cols - 1) * spacingHPx;
     const totalBadgesHeight = rows * outerDiaPx + (rows - 1) * spacingVPx;
+
+    // 所有尺寸统一减去allowedOverflow，确保位置正确（修复32mm往右下偏移问题）
     const startX =
         marginLeftPx +
         edgePaddingHPx -
@@ -479,23 +558,7 @@ const generateLayout = () => {
                 const x = startX + c * (outerDiaPx + spacingHPx);
                 const y = startY + r * (outerDiaPx + spacingVPx);
 
-                // 1. Draw dashed outer circle
-                ctx.save();
-                ctx.strokeStyle = "black";
-                ctx.lineWidth = 1;
-                ctx.setLineDash([4, 2]);
-                ctx.beginPath();
-                ctx.arc(
-                    x + outerDiaPx / 2,
-                    y + outerDiaPx / 2,
-                    outerDiaPx / 2,
-                    0,
-                    Math.PI * 2,
-                );
-                ctx.stroke();
-                ctx.restore();
-
-                // 2. Draw inner image, clipped to a circle
+                // Draw inner image, clipped to a circle
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(
@@ -526,6 +589,14 @@ const generateLayout = () => {
             canvas.width / 2,
             marginTopPx - mmToPx(2),
         );
+
+        // CRITICAL: 绘制完成后释放锁
+        isGenerating.value = false;
+    };
+    img.onerror = () => {
+        console.error("Failed to load cropped image for layout generation");
+        alert("图片加载失败，请重试！");
+        isGenerating.value = false; // 错误时也要释放锁
     };
     img.src = croppedImageSrc.value;
 };
@@ -561,6 +632,9 @@ canvas {
     @page {
         margin: 0;
         size: A4;
+        /* 强制使用精确颜色，防止打印机自动调整色彩 */
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
     body * {
         visibility: hidden;
@@ -568,6 +642,9 @@ canvas {
     .printable-area,
     .printable-area * {
         visibility: visible;
+        /* 确保打印区域也使用精确颜色 */
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
     .printable-area {
         position: absolute;
