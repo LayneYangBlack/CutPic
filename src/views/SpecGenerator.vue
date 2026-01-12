@@ -77,6 +77,31 @@
 
             <!-- 文字水印配置 -->
             <div v-if="positionWatermarkType === 'text'" class="space-y-4">
+              <!-- 快捷换算工具 -->
+              <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <label class="block text-sm font-medium mb-2 text-blue-700">🔄 快捷换算工具（cm/mm → inch）</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model.number="quickConvertValue"
+                    type="number"
+                    step="0.1"
+                    placeholder="输入数值"
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                  <select v-model="quickConvertUnit" class="px-3 py-2 border border-gray-300 rounded text-sm">
+                    <option value="cm">cm</option>
+                    <option value="mm">mm</option>
+                  </select>
+                  <button
+                    @click="addQuickConvertText"
+                    class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium"
+                  >
+                    添加
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">💡 自动生成格式：3cm/1.18inch</p>
+              </div>
+
               <div>
                 <label class="block text-sm font-medium mb-2">水印文字（每行一个）</label>
                 <textarea
@@ -250,6 +275,10 @@ const positionTextColor = ref('#000000');
 const positionTextFontSize = ref(30);
 const positionTextOpacity = ref(1);
 const positionTextAlign = ref('left'); // 文字对齐方式：left/center/right
+
+// 快捷换算工具
+const quickConvertValue = ref(''); // 尺寸数值
+const quickConvertUnit = ref('cm'); // 单位：cm 或 mm
 
 // 判断是否可以生成
 const canGenerate = computed(() => {
@@ -613,6 +642,37 @@ const addTextToCanvas = (text, savedRelativePosition = null) => {
   textFabricCanvas.on('selection:cleared', () => {
     textActiveObject.value = null;
   });
+};
+
+// 快捷换算并添加文字（cm/mm 转英寸）
+const addQuickConvertText = () => {
+  const value = parseFloat(quickConvertValue.value);
+  if (isNaN(value) || value <= 0) {
+    alert('请输入有效的数值');
+    return;
+  }
+
+  // 换算到英寸（1 inch = 2.54 cm = 25.4 mm）
+  let inches;
+  if (quickConvertUnit.value === 'cm') {
+    inches = value / 2.54;
+  } else {
+    // mm
+    inches = value / 25.4;
+  }
+
+  // 生成格式化文字：例如 "3cm/1.18inch"
+  const formattedText = `${value}${quickConvertUnit.value}/${inches.toFixed(2)}inch`;
+
+  // 添加到文字列表
+  if (positionTextList.value.trim()) {
+    positionTextList.value += '\n' + formattedText;
+  } else {
+    positionTextList.value = formattedText;
+  }
+
+  // 清空输入框
+  quickConvertValue.value = '';
 };
 
 // 监听平铺模式参数变化

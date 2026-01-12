@@ -233,18 +233,36 @@
             >
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold">裁剪历史</h2>
-                    <button
-                        @click="clearHistory"
-                        class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                    >
-                        清空历史
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <!-- 规格筛选下拉框 -->
+                        <select
+                            v-model="selectedFilter"
+                            class="px-3 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="all">
+                                全部 ({{ cropHistory.length }})
+                            </option>
+                            <option
+                                v-for="size in availableSizes"
+                                :key="size"
+                                :value="size"
+                            >
+                                {{ size }}mm ({{ sizeCount[size] }})
+                            </option>
+                        </select>
+                        <button
+                            @click="clearHistory"
+                            class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                        >
+                            清空历史
+                        </button>
+                    </div>
                 </div>
                 <div
                     class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4"
                 >
                     <div
-                        v-for="item in cropHistory"
+                        v-for="item in filteredHistory"
                         :key="item.id"
                         class="relative group"
                     >
@@ -306,7 +324,7 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted } from "vue";
+import { ref, onUnmounted, computed } from "vue";
 import CustomCropper from "./CustomCropper.vue";
 import { useCropHistory } from "../composables/useCropHistory.js";
 
@@ -341,6 +359,46 @@ const isGenerating = ref(false); // 防止重复生成导致绘制叠加
 
 // 历史记录功能
 const { cropHistory, addCrop, removeCrop, clearHistory } = useCropHistory();
+
+// 规格筛选功能
+const selectedFilter = ref("all"); // 当前选中的规格筛选
+
+// 计算属性：获取历史记录中存在的所有规格
+const availableSizes = computed(() => {
+    const sizes = new Set();
+    // 确保访问 .value 以触发响应式
+    const history = cropHistory.value;
+    history.forEach((item) => {
+        if (item.metadata && item.metadata.size) {
+            sizes.add(item.metadata.size);
+        }
+    });
+    return Array.from(sizes).sort((a, b) => a - b);
+});
+
+// 计算属性：统计每个规格的数量
+const sizeCount = computed(() => {
+    const counts = {};
+    // 确保访问 .value 以触发响应式
+    const history = cropHistory.value;
+    history.forEach((item) => {
+        if (item.metadata && item.metadata.size) {
+            const size = item.metadata.size;
+            counts[size] = (counts[size] || 0) + 1;
+        }
+    });
+    return counts;
+});
+
+// 计算属性：根据筛选条件过滤历史记录
+const filteredHistory = computed(() => {
+    if (selectedFilter.value === "all") {
+        return cropHistory.value;
+    }
+    return cropHistory.value.filter(
+        (item) => item.metadata.size === Number(selectedFilter.value)
+    );
+});
 
 // --- Methods ---
 const handleImageUpload = (event) => {
