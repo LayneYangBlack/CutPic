@@ -7,6 +7,7 @@ import PdfComposer from '../views/PdfComposer.vue'
 import SpecGenerator from '../views/SpecGenerator.vue';
 import SpecStatistics from '../views/SpecStatistics.vue';
 import BadgePage from '../views/BadgePage.vue' // New import
+import PSBatchTemplate from '../views/PSBatchTemplate.vue'; // PS批量套图
 
 const routes = [
   {
@@ -50,6 +51,11 @@ const routes = [
     path: '/spec-statistics',
     name: 'SpecStatistics',
     component: SpecStatistics
+  },
+  {
+    path: '/ps-batch',
+    name: 'PSBatchTemplate',
+    component: PSBatchTemplate
   },
 ]
 

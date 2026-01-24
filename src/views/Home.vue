@@ -50,10 +50,31 @@
         <h2 class="text-xl font-semibold">规格数量统计</h2>
         <p class="text-gray-500 dark:text-gray-400 mt-2">从Excel统计商品规格和数量</p>
       </router-link>
+
+      <!-- PS批量套图工具 -->
+      <router-link to="/ps-batch" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        <h2 class="text-xl font-semibold">PS批量套图</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">批量生成电商图片变体</p>
+      </router-link>
     </div>
   </div>
 </template>
 
 <script setup>
-// 这是一个简单的导航页面，不需要脚本
+import { onMounted } from 'vue';
+
+// 调试：检查 window.electron 是否存在
+onMounted(() => {
+  console.log('=== Electron API 检测 ===');
+  console.log('window.electron:', window.electron);
+  console.log('isElectron:', window.electron?.platform?.isElectron);
+
+  if (window.electron) {
+    console.log('✅ Electron API 已成功加载！');
+    console.log('可用的 API:', Object.keys(window.electron));
+  } else {
+    console.error('❌ Electron API 未加载！');
+  }
+});
 </script>

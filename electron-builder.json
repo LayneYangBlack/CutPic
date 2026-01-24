@@ -1,0 +1,50 @@
+{
+  "appId": "com.aicutpic.app",
+  "productName": "AI图片工具集",
+  "directories": {
+    "buildResources": "build",
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "package.json"
+  ],
+  "mac": {
+    "target": ["dmg", "zip"],
+    "category": "public.app-category.graphics-design",
+    "icon": "build/icon.icns",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "category": "Graphics",
+    "icon": "build/icon.png",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "AI图片工具集"
+  },
+  "portable": {
+    "artifactName": "${productName}-${version}-Portable.${ext}"
+  }
+}
