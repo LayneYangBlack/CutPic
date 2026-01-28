@@ -512,54 +512,81 @@ const generateLayout = () => {
     const innerDiaPx = mmToPx(innerDiameterMM);
     const outerDiaPx = mmToPx(outerDiameterMM);
 
-    // Draw corner markers (L-shaped lines)
-    const markerLength = mmToPx(10);
-    const markerLineWidth = mmToPx(0.6);
+    // Draw corner markers (实心圆形标记，直径 5mm)
+    // 注释掉原来的 L 形直角标记代码（保留以备后用）
+    // const markerLength = mmToPx(10);
+    // const markerLineWidth = mmToPx(0.6);
     const marginTopPx = mmToPx(marginTop.value);
     const marginBottomPx = mmToPx(marginBottom.value);
     const marginLeftPx = mmToPx(marginLeft.value);
     const marginRightPx = mmToPx(marginRight.value);
 
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = markerLineWidth;
+    // ctx.strokeStyle = "black";
+    // ctx.lineWidth = markerLineWidth;
 
-    // Top-left corner
-    ctx.beginPath();
-    ctx.moveTo(marginLeftPx, marginTopPx);
-    ctx.lineTo(marginLeftPx + markerLength, marginTopPx);
-    ctx.moveTo(marginLeftPx, marginTopPx);
-    ctx.lineTo(marginLeftPx, marginTopPx + markerLength);
-    ctx.stroke();
+    // // Top-left corner
+    // ctx.beginPath();
+    // ctx.moveTo(marginLeftPx, marginTopPx);
+    // ctx.lineTo(marginLeftPx + markerLength, marginTopPx);
+    // ctx.moveTo(marginLeftPx, marginTopPx);
+    // ctx.lineTo(marginLeftPx, marginTopPx + markerLength);
+    // ctx.stroke();
 
-    // Top-right corner
-    ctx.beginPath();
-    ctx.moveTo(canvas.width - marginRightPx, marginTopPx);
-    ctx.lineTo(canvas.width - marginRightPx - markerLength, marginTopPx);
-    ctx.moveTo(canvas.width - marginRightPx, marginTopPx);
-    ctx.lineTo(canvas.width - marginRightPx, marginTopPx + markerLength);
-    ctx.stroke();
+    // // Top-right corner
+    // ctx.beginPath();
+    // ctx.moveTo(canvas.width - marginRightPx, marginTopPx);
+    // ctx.lineTo(canvas.width - marginRightPx - markerLength, marginTopPx);
+    // ctx.moveTo(canvas.width - marginRightPx, marginTopPx);
+    // ctx.lineTo(canvas.width - marginRightPx, marginTopPx + markerLength);
+    // ctx.stroke();
 
-    // Bottom-left corner
-    ctx.beginPath();
-    ctx.moveTo(marginLeftPx, canvas.height - marginBottomPx);
-    ctx.lineTo(marginLeftPx + markerLength, canvas.height - marginBottomPx);
-    ctx.moveTo(marginLeftPx, canvas.height - marginBottomPx);
-    ctx.lineTo(marginLeftPx, canvas.height - marginBottomPx - markerLength);
-    ctx.stroke();
+    // // Bottom-left corner
+    // ctx.beginPath();
+    // ctx.moveTo(marginLeftPx, canvas.height - marginBottomPx);
+    // ctx.lineTo(marginLeftPx + markerLength, canvas.height - marginBottomPx);
+    // ctx.moveTo(marginLeftPx, canvas.height - marginBottomPx);
+    // ctx.lineTo(marginLeftPx, canvas.height - marginBottomPx - markerLength);
+    // ctx.stroke();
 
-    // Bottom-right corner
+    // // Bottom-right corner
+    // ctx.beginPath();
+    // ctx.moveTo(canvas.width - marginRightPx, canvas.height - marginBottomPx);
+    // ctx.lineTo(
+    //     canvas.width - marginRightPx - markerLength,
+    //     canvas.height - marginBottomPx,
+    // );
+    // ctx.moveTo(canvas.width - marginRightPx, canvas.height - marginBottomPx);
+    // ctx.lineTo(
+    //     canvas.width - marginRightPx,
+    //     canvas.height - marginBottomPx - markerLength,
+    // );
+    // ctx.stroke();
+
+    // 新的实心圆形角标记（直径 5mm）
+    const markerDiameter = mmToPx(5); // 圆形标记直径 5mm
+    const markerRadius = markerDiameter / 2;
+
+    ctx.fillStyle = "black";
+
+    // 左上角实心圆
     ctx.beginPath();
-    ctx.moveTo(canvas.width - marginRightPx, canvas.height - marginBottomPx);
-    ctx.lineTo(
-        canvas.width - marginRightPx - markerLength,
-        canvas.height - marginBottomPx,
-    );
-    ctx.moveTo(canvas.width - marginRightPx, canvas.height - marginBottomPx);
-    ctx.lineTo(
-        canvas.width - marginRightPx,
-        canvas.height - marginBottomPx - markerLength,
-    );
-    ctx.stroke();
+    ctx.arc(marginLeftPx, marginTopPx, markerRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 右上角实心圆
+    ctx.beginPath();
+    ctx.arc(canvas.width - marginRightPx, marginTopPx, markerRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 左下角实心圆
+    ctx.beginPath();
+    ctx.arc(marginLeftPx, canvas.height - marginBottomPx, markerRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 右下角实心圆
+    ctx.beginPath();
+    ctx.arc(canvas.width - marginRightPx, canvas.height - marginBottomPx, markerRadius, 0, Math.PI * 2);
+    ctx.fill();
 
     // Calculate layout area (apply edge padding inside the margins, allow 5mm overflow)
     const allowedOverflow = mmToPx(5);
@@ -638,14 +665,14 @@ const generateLayout = () => {
             }
         }
 
-        // 绘制尺寸标注文字
+        // 绘制尺寸标注文字（放在页面底部中央，确保打印安全区域内）
         ctx.fillStyle = "black";
         ctx.font = `${mmToPx(4)}px Arial`;
         ctx.textAlign = "center";
         ctx.fillText(
-            `${innerDiameterMM}mm`,
+            `${innerDiameterMM}`,
             canvas.width / 2,
-            marginTopPx - mmToPx(2),
+            canvas.height - marginBottomPx + mmToPx(3),
         );
 
         // CRITICAL: 绘制完成后释放锁
