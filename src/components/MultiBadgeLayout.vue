@@ -230,7 +230,7 @@ const showHistorySelectionModal = ref(false); // New state for modal
 
 const a4Canvas = ref(null);
 const printableImage = ref(null);
-const cropperBgColor = ref('#f3f4f6'); // Add cropper background color state
+const cropperBgColor = ref('#ffffff'); // 裁剪框默认背景色：白色
 const generatedPages = ref([]); // 存储生成的多页canvas的dataURL数组
 
 const allDesignsReady = computed(() => badgeDesigns.value.length > 0 && badgeDesigns.value.every(d => d.croppedImageSrc));
