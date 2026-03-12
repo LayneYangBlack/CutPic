@@ -53,13 +53,19 @@ export function initInpaintSession(progressCallback) {
         throw new Error("ONNX Runtime is not available.");
       }
 
+      // 配置 WASM 路径（指向 public 目录）
+      const wasmPaths = new URL('/', window.location.href).toString();
+      console.log('WASM 路径:', wasmPaths);
+
       const modelPath = new URL('/inpaint.onnx', window.location.href).toString();
+      console.log('模型路径:', modelPath);
+
       const modelBuffer = await fetchWithProgress(modelPath, progressCallback);
 
       const session = await ort.InferenceSession.create(modelBuffer, {
         executionProviders: [{
           name: 'wasm',
-          wasmPaths: './',
+          wasmPaths: wasmPaths,
         }],
       });
 

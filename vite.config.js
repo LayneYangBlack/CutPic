@@ -99,12 +99,21 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      /*
+      // 配置 WASM 文件的 MIME 类型
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin',
         'Cross-Origin-Embedder-Policy': 'require-corp'
+      },
+      // 配置静态资源的 MIME 类型
+      fs: {
+        strict: false
       }
-      */
-    }
+    },
+    // 优化配置：确保 WASM 文件被正确处理
+    optimizeDeps: {
+      exclude: ['onnxruntime-web']
+    },
+    // 配置 assetsInclude 以正确处理 WASM 文件
+    assetsInclude: ['**/*.wasm', '**/*.onnx']
   };
 })

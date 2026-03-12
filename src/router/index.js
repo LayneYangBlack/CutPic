@@ -1,6 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import CutPic from '../views/CutPic.vue'
-import Inpaint from '../views/Inpaint.vue'
 import Home from '../views/Home.vue'
 import PdfComposer from '../views/PdfComposer.vue'
 // import BackgroundRemoval from '../views/BackgroundRemoval.vue';
@@ -8,22 +6,13 @@ import SpecGenerator from '../views/SpecGenerator.vue';
 import SpecStatistics from '../views/SpecStatistics.vue';
 import BadgePage from '../views/BadgePage.vue' // New import
 import PSBatchTemplate from '../views/PSBatchTemplate.vue'; // PS批量套图
+import ImageWatermarkRemover from '../views/ImageWatermarkRemover.vue'; // 图片裁剪+水印擦除
 
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: Home
-  },
-  {
-    path: '/cutpic',
-    name: 'CutPic',
-    component: CutPic
-  },
-  {
-    path: '/inpaint',
-    name: 'Inpaint',
-    component: Inpaint
   },
   {
     path: '/badge',
@@ -56,6 +45,11 @@ const routes = [
     path: '/ps-batch',
     name: 'PSBatchTemplate',
     component: PSBatchTemplate
+  },
+  {
+    path: '/watermark-remover',
+    name: 'ImageWatermarkRemover',
+    component: ImageWatermarkRemover
   },
 ]
 
