@@ -3,15 +3,27 @@
   <div v-if="isModelLoading" class="fixed inset-0 bg-white bg-opacity-80 flex flex-col justify-center items-center z-50">
     <div class="w-full max-w-md p-8 bg-white rounded-lg shadow-xl">
       <h2 class="text-xl font-semibold text-center mb-4">正在初始化修复模型...</h2>
-      <p class="text-sm text-gray-600 text-center mb-2">首次加载需要下载约30MB的模型文件，请稍候。</p>
+      <p class="text-sm text-gray-600 text-center mb-2">
+        {{ modelLoadProgress < 90 ? '正在下载模型文件（约27MB）...' : '正在初始化推理引擎...' }}
+      </p>
+      <p class="text-xs text-gray-500 text-center mb-4">首次加载需要下载，请耐心等待</p>
       <div class="w-full bg-gray-200 rounded-full">
         <div
-          class="bg-blue-500 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full"
+          class="bg-blue-500 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full transition-all duration-300"
           :style="{ width: modelLoadProgress + '%' }"
         >
           {{ modelLoadProgress.toFixed(0) }}%
         </div>
       </div>
+      <p class="text-xs text-gray-400 text-center mt-2">
+        {{ modelLoadProgress < 90 ? '下载速度取决于您的网络状况' : '即将完成...' }}
+      </p>
+      <button
+        @click="skipModelLoading"
+        class="mt-4 w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+      >
+        跳过AI修复（使用简单算法）
+      </button>
     </div>
   </div>
 
@@ -180,6 +192,12 @@ const modelLoadProgress = ref(0);
 // 图像处理器
 const { processImage } = useImageProcessor();
 
+// 跳过模型加载
+const skipModelLoading = () => {
+  console.log('用户选择跳过AI模型加载');
+  isModelLoading.value = false;
+};
+
 // 初始化ONNX模型
 onMounted(async () => {
   try {
@@ -189,6 +207,9 @@ onMounted(async () => {
       console.log('模型加载进度:', progress.toFixed(2) + '%');
     });
     console.log('ONNX模型加载完成');
+
+    // 等待一小段时间确保UI更新到100%
+    await new Promise(resolve => setTimeout(resolve, 300));
     isModelLoading.value = false;
   } catch (error) {
     console.error('ONNX模型加载失败:', error);
