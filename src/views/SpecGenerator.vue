@@ -289,7 +289,8 @@ const canGenerate = computed(() => {
     if (positionWatermarkType.value === 'text') {
       return positionTextList.value.trim() !== '';
     } else {
-      return fabricCanvas && fabricCanvas.getObjects().length > 0;
+      // 使用响应式变量 imageWatermarkCount 来判断是否有水印图片
+      return imageWatermarkCount.value > 0;
     }
   }
 });
@@ -446,6 +447,9 @@ const stylePresets = ref([
 const imageWatermarkOpacity = ref(1);
 const imageWatermarkScale = ref(1);
 
+// 图片水印数量（响应式变量，用于触发 canGenerate 重新计算）
+const imageWatermarkCount = ref(0);
+
 const isGenerating = ref(false);
 
 // --- Lifecycle Hooks ---
@@ -488,7 +492,18 @@ const initPositionCanvas = () => {
     'selection:created': updateActiveObject,
     'selection:updated': updateActiveObject,
     'selection:cleared': () => { activeObject.value = null; },
+    // 监听对象添加事件，更新水印计数
+    'object:added': () => {
+      imageWatermarkCount.value = fabricCanvas.getObjects().length;
+    },
+    // 监听对象移除事件，更新水印计数
+    'object:removed': () => {
+      imageWatermarkCount.value = fabricCanvas.getObjects().length;
+    },
   });
+
+  // 初始化时重置水印计数
+  imageWatermarkCount.value = 0;
 };
 
 // 更新平铺预览
@@ -760,7 +775,13 @@ watch(positionWatermarkType, async (newType) => {
     if (newType === 'text') {
       await updatePositionTextPreview();
     } else {
-      setTimeout(() => initPositionCanvas(), 100);
+      setTimeout(() => {
+        initPositionCanvas();
+        // 如果画布已存在，同步水印计数
+        if (fabricCanvas) {
+          imageWatermarkCount.value = fabricCanvas.getObjects().length;
+        }
+      }, 100);
     }
   }
 });
@@ -826,6 +847,8 @@ const addImageWatermark = (file) => {
       fabricCanvas.add(imgObj);
       fabricCanvas.setActiveObject(imgObj);
       fabricCanvas.renderAll();
+      // 添加水印后，更新水印计数（触发 canGenerate 重新计算）
+      imageWatermarkCount.value = fabricCanvas.getObjects().length;
     };
     img.src = e.target.result;
   };

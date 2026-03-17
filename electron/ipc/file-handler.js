@@ -113,6 +113,75 @@ ipcMain.handle('file:read-image-folder', async (event, folderPath) => {
 });
 
 /**
+ * 读取文件夹中的所有文件（包括json和图片）
+ * 用于JSON自动排版功能
+ */
+ipcMain.handle('file:read-folder-contents', async (event, folderPath) => {
+  try {
+    const files = await fs.readdir(folderPath);
+    const results = [];
+
+    for (const filename of files) {
+      const fullPath = path.join(folderPath, filename);
+      const stat = await fs.stat(fullPath);
+
+      // 跳过文件夹
+      if (stat.isDirectory()) continue;
+
+      const ext = path.extname(filename).toLowerCase();
+
+      // 读取JSON文件
+      if (ext === '.json') {
+        const content = await fs.readFile(fullPath, 'utf-8');
+        results.push({
+          name: filename,
+          path: fullPath,
+          type: 'json',
+          content: content,
+          size: stat.size,
+        });
+      }
+      // 读取图片文件
+      else if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext)) {
+        const buffer = await fs.readFile(fullPath);
+        const mimeTypes = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+          '.bmp': 'image/bmp',
+        };
+        const mimeType = mimeTypes[ext] || 'image/jpeg';
+        const base64 = buffer.toString('base64');
+        const dataURL = `data:${mimeType};base64,${base64}`;
+
+        results.push({
+          name: filename,
+          path: fullPath,
+          type: 'image',
+          data: dataURL,
+          size: stat.size,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      files: results,
+      count: results.length,
+      folderPath: folderPath,
+    };
+  } catch (error) {
+    console.error('读取文件夹内容失败:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+});
+
+/**
  * 保存文件（会弹出保存对话框）
  * Desktop优势：可以让用户选择保存位置，不像浏览器只能下载到Downloads文件夹
  */

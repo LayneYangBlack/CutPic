@@ -26,6 +26,14 @@
         >
           CDR排版
         </button>
+        <button
+          @click="mode = 'json'"
+          :class="['w-full rounded-md py-2.5 text-sm font-medium leading-5',
+            mode === 'json' ? 'bg-white shadow' : 'text-gray-700 hover:bg-white/[0.5]'
+          ]"
+        >
+          JSON自动排版
+        </button>
       </div>
     </div>
 
@@ -33,6 +41,7 @@
       <SingleBadgeLayout v-if="mode === 'single'" />
       <MultiBadgeLayout v-if="mode === 'multi'" />
       <CdrBadgeLayout v-if="mode === 'cdr'" />
+      <JsonBadgeLayout v-if="mode === 'json'" />
     </div>
   </div>
 </template>
@@ -42,8 +51,9 @@ import { ref } from 'vue';
 import SingleBadgeLayout from '../components/SingleBadgeLayout.vue';
 import MultiBadgeLayout from '../components/MultiBadgeLayout.vue';
 import CdrBadgeLayout from '../components/CdrBadgeLayout.vue';
+import JsonBadgeLayout from '../components/JsonBadgeLayout.vue';
 
-const mode = ref('single'); // 'single', 'multi', or 'cdr'
+const mode = ref('single'); // 'single', 'multi', 'cdr', or 'json'
 </script>
 
 <style scoped>
