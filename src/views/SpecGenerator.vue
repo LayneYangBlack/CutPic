@@ -193,6 +193,43 @@
         <!-- 第三步：生成下载 -->
         <div class="border-t pt-4">
           <h2 class="text-lg font-semibold mb-3">3. 生成并下载</h2>
+
+          <!-- 导出尺寸设置 -->
+          <div class="mb-4 space-y-3">
+            <label class="block text-sm font-medium text-gray-700">导出尺寸（留空则使用原图尺寸）</label>
+            <div class="flex gap-2 items-center">
+              <div class="flex-1">
+                <label class="text-xs text-gray-500">宽度(px)</label>
+                <input
+                  v-model.number="exportWidth"
+                  type="number"
+                  placeholder="原图宽度"
+                  min="1"
+                  class="w-full p-2 border border-gray-300 rounded text-sm"
+                />
+              </div>
+              <div class="flex-1">
+                <label class="text-xs text-gray-500">高度(px)</label>
+                <input
+                  v-model.number="exportHeight"
+                  type="number"
+                  placeholder="原图高度"
+                  min="1"
+                  class="w-full p-2 border border-gray-300 rounded text-sm"
+                />
+              </div>
+            </div>
+            <div class="flex items-center">
+              <input
+                v-model="keepAspectRatio"
+                type="checkbox"
+                id="keepAspectRatio"
+                class="mr-2"
+              />
+              <label for="keepAspectRatio" class="text-sm text-gray-600">保持宽高比（只需填写宽度或高度）</label>
+            </div>
+          </div>
+
           <button
             @click="generateAndDownload"
             :disabled="isGenerating || backgroundImages.length === 0 || !canGenerate"
@@ -447,8 +484,10 @@ const stylePresets = ref([
 const imageWatermarkOpacity = ref(1);
 const imageWatermarkScale = ref(1);
 
-// 图片水印数量（响应式变量，用于触发 canGenerate 重新计算）
-const imageWatermarkCount = ref(0);
+// 导出尺寸设置
+const exportWidth = ref(null); // 导出宽度，null表示使用原图宽度
+const exportHeight = ref(null); // 导出高度，null表示使用原图高度
+const keepAspectRatio = ref(true); // 是否保持宽高比
 
 const isGenerating = ref(false);
 
@@ -934,14 +973,17 @@ const generateTiledWatermark = async (zip) => {
     const imageData = await readFileAsDataURL(file);
     const bgImg = await loadImage(imageData);
 
+    // 计算实际导出尺寸
+    const { width, height } = calculateExportSize(bgImg.width, bgImg.height);
+
     // 创建画布
     const canvas = document.createElement('canvas');
-    canvas.width = bgImg.width;
-    canvas.height = bgImg.height;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
 
-    // 绘制背景
-    ctx.drawImage(bgImg, 0, 0);
+    // 绘制背景（如果尺寸不同，进行缩放）
+    ctx.drawImage(bgImg, 0, 0, width, height);
 
     // 绘制平铺水印
     const preset = stylePresets.value.find(p => p.name === tileSelectedPreset.value);
@@ -953,8 +995,8 @@ const generateTiledWatermark = async (zip) => {
 
     const tileWidth = 300;
     const tileHeight = 300;
-    const cols = Math.ceil(bgImg.width / tileWidth) + 2;
-    const rows = Math.ceil(bgImg.height / tileHeight) + 2;
+    const cols = Math.ceil(width / tileWidth) + 2;
+    const rows = Math.ceil(height / tileHeight) + 2;
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -969,9 +1011,11 @@ const generateTiledWatermark = async (zip) => {
       }
     }
 
-    const dataUrl = canvas.toDataURL('image/png', 1);
+    // 根据原图格式导出
+    const { format, quality } = getImageFormat(file.name);
+    const dataUrl = canvas.toDataURL(format, quality);
     const blob = dataURLtoBlob(dataUrl);
-    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_水印.png';
+    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_水印' + getFileExtension(file.name);
     zip.file(fileName, blob);
   }
 };
@@ -1004,6 +1048,9 @@ const generatePositionTextWatermark = async (zip) => {
     const file = backgroundImages.value[i];
     const imageData = await readFileAsDataURL(file);
     const bgImg = await loadImage(imageData);
+
+    // 计算实际导出尺寸
+    const { width, height } = calculateExportSize(bgImg.width, bgImg.height);
 
     // 为每条文字生成一张图片
     for (let j = 0; j < textLines.length; j++) {
@@ -1053,14 +1100,14 @@ const generatePositionTextWatermark = async (zip) => {
 
       // 创建画布
       const canvas = document.createElement('canvas');
-      canvas.width = bgImg.width;
-      canvas.height = bgImg.height;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
 
-      // 绘制背景图片
-      ctx.drawImage(bgImg, 0, 0);
+      // 绘制背景图片（如果尺寸不同，进行缩放）
+      ctx.drawImage(bgImg, 0, 0, width, height);
 
-      // 计算缩放比例（实际图片尺寸 / 预览画布尺寸）
+      // 计算缩放比例（实际导出尺寸 / 预览画布尺寸）
       const scaleRatio = canvas.width / textFabricCanvas.width;
 
       // 使用相对位置计算实际位置
@@ -1156,11 +1203,13 @@ const generatePositionTextWatermark = async (zip) => {
       // 恢复画布状态
       ctx.restore();
 
-      // 导出为图片
-      const dataUrl = canvas.toDataURL('image/png', 1);
+      // 根据原图格式导出
+      const { format, quality } = getImageFormat(file.name);
+      const dataUrl = canvas.toDataURL(format, quality);
       const blob = dataURLtoBlob(dataUrl);
       const baseName = file.name.replace(/\.[^/.]+$/, '');
-      const fileName = `${baseName}_${textLines[j]}_水印.png`;
+      const fileExt = getFileExtension(file.name);
+      const fileName = `${baseName}_${textLines[j]}_水印${fileExt}`;
       zip.file(fileName, blob);
     }
   }
@@ -1181,18 +1230,21 @@ const generatePositionWatermark = async (zip) => {
     const imageData = await readFileAsDataURL(file);
     const bgImg = await loadImage(imageData);
 
+    // 计算实际导出尺寸
+    const { width, height } = calculateExportSize(bgImg.width, bgImg.height);
+
     // 创建原生 canvas 进行合成
     const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = bgImg.width;
-    finalCanvas.height = bgImg.height;
+    finalCanvas.width = width;
+    finalCanvas.height = height;
     const ctx = finalCanvas.getContext('2d');
 
-    // 绘制背景图片
-    ctx.drawImage(bgImg, 0, 0, bgImg.width, bgImg.height);
+    // 绘制背景图片（如果尺寸不同，进行缩放）
+    ctx.drawImage(bgImg, 0, 0, width, height);
 
     // 位置模式：按照画布上的相对位置和大小显示
-    const scaleX = bgImg.width / fabricCanvas.getWidth();
-    const scaleY = bgImg.height / fabricCanvas.getHeight();
+    const scaleX = width / fabricCanvas.getWidth();
+    const scaleY = height / fabricCanvas.getHeight();
 
     // 计算水印在背景图上的实际尺寸和位置
     const watermarkWidth = fabricCanvas.getWidth() * scaleX;
@@ -1211,10 +1263,11 @@ const generatePositionWatermark = async (zip) => {
       watermarkHeight
     );
 
-    // 导出为图片
-    const dataUrl = finalCanvas.toDataURL('image/png', 1);
+    // 根据原图格式导出
+    const { format, quality } = getImageFormat(file.name);
+    const dataUrl = finalCanvas.toDataURL(format, quality);
     const blob = dataURLtoBlob(dataUrl);
-    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_水印.png';
+    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_水印' + getFileExtension(file.name);
     zip.file(fileName, blob);
   }
 };
@@ -1236,6 +1289,64 @@ const loadImage = (src) => {
     img.onerror = reject;
     img.src = src;
   });
+};
+
+// 计算实际导出尺寸（根据用户设置的宽高）
+const calculateExportSize = (originalWidth, originalHeight) => {
+  // 如果用户没有设置宽高，使用原图尺寸
+  if (!exportWidth.value && !exportHeight.value) {
+    return { width: originalWidth, height: originalHeight };
+  }
+
+  // 如果保持宽高比
+  if (keepAspectRatio.value) {
+    if (exportWidth.value && !exportHeight.value) {
+      // 只设置了宽度，根据宽度计算高度
+      const ratio = exportWidth.value / originalWidth;
+      return {
+        width: exportWidth.value,
+        height: Math.round(originalHeight * ratio)
+      };
+    } else if (!exportWidth.value && exportHeight.value) {
+      // 只设置了高度，根据高度计算宽度
+      const ratio = exportHeight.value / originalHeight;
+      return {
+        width: Math.round(originalWidth * ratio),
+        height: exportHeight.value
+      };
+    } else {
+      // 同时设置了宽高，以宽度为准计算高度
+      const ratio = exportWidth.value / originalWidth;
+      return {
+        width: exportWidth.value,
+        height: Math.round(originalHeight * ratio)
+      };
+    }
+  } else {
+    // 不保持宽高比，使用用户设置的值或原图尺寸
+    return {
+      width: exportWidth.value || originalWidth,
+      height: exportHeight.value || originalHeight
+    };
+  }
+};
+
+// 根据文件名获取图片格式和质量参数
+const getImageFormat = (fileName) => {
+  const ext = fileName.toLowerCase().split('.').pop();
+  if (ext === 'jpg' || ext === 'jpeg') {
+    return { format: 'image/jpeg', quality: 0.95 }; // JPEG使用0.95质量，减小文件大小
+  } else if (ext === 'webp') {
+    return { format: 'image/webp', quality: 0.95 };
+  } else {
+    return { format: 'image/png', quality: 1 }; // PNG无损
+  }
+};
+
+// 获取文件扩展名
+const getFileExtension = (fileName) => {
+  const ext = fileName.toLowerCase().split('.').pop();
+  return '.' + ext;
 };
 </script>
 
