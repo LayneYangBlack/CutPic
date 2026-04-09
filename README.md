@@ -1,162 +1,192 @@
-# 图片裁剪浏览器插件
+# AI图片工具集 - Electron桌面应用
 
-一个基于Vue 3的浏览器插件，用于在线图片裁剪和尺寸调整。
+一个基于Vue 3 + Electron的桌面图片处理工具集，支持Web和Desktop双模式运行。
 
-## 功能特点
+## ✨ 功能特点
 
-- 支持通过URL加载图片
-- 自定义裁剪尺寸（长和宽）
-- 自由裁剪功能
-- 智能尺寸扩展（当目标尺寸大于原图时）
-- 响应式设计
-- 图片处理与下载功能
-  - 支持多种图片格式（JPG、PNG、WebP）
-  - 自定义图片质量
-  - 一键下载处理后的图片
-  - 支持批量处理
+### 核心功能
+- 🖼️ **图片裁剪** - 自定义尺寸裁剪、智能扩展
+- 📊 **PS批量套图** - 可视化模板编辑、Excel批量数据导入、一键生成
+- 📄 **PDF合成** - 多图片合成PDF文档
+- 📐 **规格图生成** - 商品规格图快速生成
+- 📈 **规格统计** - 数据统计与分析
+- 🏷️ **徽章排版** - 徽章批量排版工具
 
-## 技术栈
+### 双模式支持
+- 🌐 **Web模式** - 浏览器访问，支持URL图片
+- 🖥️ **Desktop模式** - 桌面应用，支持本地文件路径
 
-- Vue 3
-- JavaScript
-- TailwindCSS
-- Vue Cropper (图片裁剪组件)
-- Vite (构建工具)
-- FileSaver.js (文件下载)
+### Desktop模式优势
+| 功能 | Web模式 | Desktop模式 |
+|------|---------|-------------|
+| 文件路径 | ❌ 仅URL | ✅ 本地路径 `C:\xxx\image.jpg` |
+| 文件选择 | Input元素 | 原生对话框 |
+| 文件保存 | 下载到Downloads | 用户选择位置 |
+| 批量处理 | 手动选择 | 文件夹扫描 |
+| 离线使用 | ❌ 需要网络 | ✅ 完全离线 |
 
-## 开发任务清单
+## 🚀 快速开始
 
-### 1. 基础功能开发
-- [ ] 图片上传组件
-  - [ ] URL输入框
-  - [ ] 图片预览
-  - [ ] 错误提示
-- [ ] 尺寸设置组件
-  - [ ] 宽度输入
-  - [ ] 高度输入
-  - [ ] 保持比例选项
-- [ ] 裁剪功能
-  - [ ] 集成Vue Cropper
-  - [ ] 自由裁剪模式
-  - [ ] 固定比例裁剪
-  - [ ] 裁剪框调整
-
-### 2. 图片处理功能
-- [ ] 图片格式转换
-  - [ ] JPG转换
-  - [ ] PNG转换
-  - [ ] WebP转换
-- [ ] 图片质量调整
-  - [ ] 压缩率设置
-  - [ ] 质量预览
-- [ ] 尺寸调整
-  - [ ] 等比例缩放
-  - [ ] 强制尺寸调整
-  - [ ] 画布扩展
-
-### 3. 下载功能
-- [ ] 单张图片下载
-  - [ ] 文件命名
-  - [ ] 格式选择
-  - [ ] 质量设置
-- [ ] 批量下载
-  - [ ] 队列管理
-  - [ ] 进度显示
-  - [ ] 错误处理
-
-### 4. 用户界面优化
-- [ ] 响应式布局
-  - [ ] 弹窗尺寸适配
-  - [ ] 组件布局优化
-- [ ] 交互优化
-  - [ ] 拖拽上传
-  - [ ] 快捷键支持
-  - [ ] 操作提示
-- [ ] 主题定制
-  - [ ] 明暗主题
-  - [ ] 主题切换
-
-### 5. 性能优化
-- [ ] 图片处理优化
-  - [ ] 大图片处理
-  - [ ] 内存管理
-  - [ ] 处理队列
-- [ ] 加载优化
-  - [ ] 懒加载
-  - [ ] 预加载
-  - [ ] 缓存策略
-
-### 6. 测试与发布
-- [ ] 功能测试
-  - [ ] 单元测试
-  - [ ] 集成测试
-  - [ ] 兼容性测试
-- [ ] 性能测试
-  - [ ] 加载性能
-  - [ ] 处理性能
-  - [ ] 内存占用
-- [ ] 发布准备
-  - [ ] 文档编写
-  - [ ] 打包优化
-  - [ ] 发布流程
-
-## 项目结构
-```
-src/
-├── components/        # 组件目录
-│   ├── ImageCropper/  # 图片裁剪组件
-│   ├── ImageProcessor/# 图片处理组件
-│   └── DownloadPanel/ # 下载面板组件
-├── composables/       # 组合式函数
-│   ├── useImageProcess.js  # 图片处理逻辑
-│   └── useDownload.js      # 下载功能逻辑
-├── utils/            # 工具函数
-│   ├── imageUtils.js # 图片处理工具
-│   └── downloadUtils.js    # 下载相关工具
-├── assets/           # 静态资源
-└── popup/            # 插件弹窗相关代码
-```
-
-## 开发规范
-
-### 代码规范
-- 使用JavaScript进行开发
-- 遵循Vue 3组合式API规范
-- 使用TailwindCSS进行样式管理
-- 保持代码注释完整
-- 使用ESLint进行代码规范检查
-
-### 命名规范
-- 组件名：PascalCase
-- 文件名：kebab-case
-- 变量名：camelCase
-- 常量名：UPPER_CASE
-
-### 注释规范
-- 组件注释：包含功能说明、参数说明
-- 函数注释：包含功能说明、参数说明、返回值说明
-- 复杂逻辑注释：说明实现思路
-
-## 安装与使用
-
-### 开发环境
+### 安装依赖
 ```bash
-# 安装依赖
 npm install
+```
 
-# 开发模式
+### 开发模式
+
+#### Web模式（浏览器）
+```bash
 npm run dev
+```
+访问：http://localhost:5173
 
-# 构建插件
+#### Electron模式（桌面应用）
+```bash
+npm run dev:electron
+```
+自动打开Electron窗口
+
+### 生产打包
+
+#### Web版打包
+```bash
 npm run build
 ```
+生成 `dist/` 文件夹，部署到服务器
 
-### 浏览器安装
-1. 打开Chrome扩展管理页面 (chrome://extensions/)
-2. 开启开发者模式
-3. 点击"加载已解压的扩展程序"
-4. 选择项目的dist目录
+#### Desktop版打包
 
-## 许可证
+**Windows安装包：**
+```bash
+npm run package:win
+```
+
+**Mac安装包：**
+```bash
+npm run package:mac
+```
+
+**Linux安装包：**
+```bash
+npm run package:linux
+```
+
+**所有平台：**
+```bash
+npm run package
+```
+
+## 🛠️ 技术栈
+
+### 前端框架
+- Vue 3 (Composition API)
+- Vue Router
+- TailwindCSS
+
+### 桌面端
+- Electron 40.0.0
+- vite-plugin-electron
+
+### 图片处理
+- Fabric.js v6 (Canvas操作)
+- Vue Cropper (图片裁剪)
+
+### 数据处理
+- XLSX (Excel读写)
+- JSZip (批量打包)
+- FileSaver.js (文件下载)
+
+### 构建工具
+- Vite 5.4.19
+- electron-builder (打包)
+
+## 📂 项目结构
+
+```
+CutPic/
+├── electron/                    # Electron相关代码
+│   ├── main.js                 # 主进程入口
+│   ├── preload.js              # 预加载脚本（安全桥接）
+│   └── ipc/                    # IPC通信模块
+│       ├── file-handler.js     # 文件系统操作
+│       └── dialog-handler.js   # 文件对话框
+│
+├── src/                        # Vue源码（Web和Desktop共用）
+│   ├── views/                  # 页面组件
+│   ├── components/             # 公共组件
+│   ├── composables/            # Vue3 Composables
+│   │   └── useFileSystem.js    # 平台适配层 ⭐
+│   ├── router/                 # 路由配置
+│   └── assets/                 # 静态资源
+│
+├── dist/                       # Web构建输出
+├── dist-electron/              # Electron构建输出
+├── release/                    # 打包输出（.exe/.dmg/.AppImage）
+│
+├── electron-builder.json       # 打包配置
+├── vite.config.js             # Vite配置（支持Electron）
+└── package.json               # 项目配置
+```
+
+## 📖 开发文档
+
+详细的开发指南请查看：[ELECTRON开发指南.md](./ELECTRON开发指南.md)
+
+包含内容：
+- Electron框架搭建说明
+- 平台适配层使用方法
+- 功能改造指南
+- 常见问题解答
+
+## 🎯 路线图
+
+### 已完成 ✅
+- [x] Electron框架搭建
+- [x] 平台适配层（Web/Desktop自动切换）
+- [x] PS批量套图功能改造（支持本地路径）
+- [x] 艺术字样式系统（12种预设）
+
+### 进行中 🚧
+- [ ] 图片裁剪功能改造
+- [ ] PDF合成功能改造
+
+### 计划中 📋
+- [ ] 规格图生成功能改造
+- [ ] 自定义应用菜单
+- [ ] 系统托盘
+- [ ] 自动更新
+
+## 🐛 常见问题
+
+### Q: Electron窗口打不开？
+A: 检查控制台日志，确保没有编译错误。运行 `npm run dev:electron` 查看输出。
+
+### Q: 如何调试Electron？
+A: 开发模式下会自动打开DevTools，也可以在代码中加 `console.log`。
+
+### Q: 打包后体积很大？
+A: Electron应用包含Chromium，基础大小~100MB。可以通过asar压缩、移除不需要的依赖来优化。
+
+### Q: 如何判断当前环境？
+A: 使用 `useFileSystem` 的 `isElectron.value` 判断。
+
+## 📄 许可证
 
 MIT License
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request！
+
+---
+
+**开始使用：**
+```bash
+# Web模式
+npm run dev
+
+# Desktop模式
+npm run dev:electron
+```
+
+享受强大的桌面端功能！🚀

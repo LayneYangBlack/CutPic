@@ -170,6 +170,7 @@ const processData = (data) => {
     const productName = row['商品名称'] || '';
     const attributes = row['商品属性集'] || '';
     const orderInfo = row['备货单'] || '';
+    const skuCode = row['SKU货号'] || ''; // 读取SKU货号字段
 
     let basePcs = 0;
     let spec = 'N/A';
@@ -226,6 +227,12 @@ const processData = (data) => {
       if (spec === 'N/A' && attributes && !/^\s*\d+\s*(pcs|个)\s*$/i.test(attributes)) {
         spec = attributes;
       }
+    }
+
+    // 检查SKU货号是否包含plastic，如果包含则在规格前加"塑料"前缀
+    const isPlastic = /plastic/i.test(skuCode);
+    if (isPlastic && spec !== 'N/A') {
+      spec = `塑料${spec}`;
     }
 
     // Get Multiplier (now allows space or comma as separator)

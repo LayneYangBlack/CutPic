@@ -2,19 +2,6 @@
   <div class="container mx-auto p-8">
     <h1 class="text-3xl font-bold text-center mb-12">选择一个工具</h1>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      <!-- 图片裁剪工具 -->
-      <router-link to="/cutpic" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <svg class="w-16 h-16 mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.629,18.629,18.629,7.629,16.371,5.371,5.371,16.371ZM5,16V19H8M19,8V5H16"></path></svg>
-        <h2 class="text-xl font-semibold">图片裁剪</h2>
-        <p class="text-gray-500 dark:text-gray-400 mt-2">调整图片尺寸和比例</p>
-      </router-link>
-
-      <!-- 图片修复工具 -->
-<!--      <router-link to="/inpaint" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">-->
-<!--        <svg class="w-16 h-16 mb-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3c-1.2 0-2.4.3-3.5.8-1.1.5-2.1 1.2-2.9 2.1-1.6 1.6-2.6 3.8-2.6 6.1 0 2.3 1 4.5 2.6 6.1 1.6 1.6 3.8 2.6 6.1 2.6s4.5-1 6.1-2.6c1.6-1.6 2.6-3.8 2.6-6.1 0-2.3-1-4.5-2.6-6.1C16.5 4.2 15.5 3.5 14.4 3L12 3zm0 0v.01M12 15l-2 2 4 4 2-2-4-4z"></path></svg>-->
-<!--        <h2 class="text-xl font-semibold">图片消除</h2>-->
-<!--        <p class="text-gray-500 dark:text-gray-400 mt-2">移除图片中的多余物体</p>-->
-<!--      </router-link>-->
 
       <!-- 徽章排版工具 -->
       <router-link to="/badge" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -50,10 +37,38 @@
         <h2 class="text-xl font-semibold">规格数量统计</h2>
         <p class="text-gray-500 dark:text-gray-400 mt-2">从Excel统计商品规格和数量</p>
       </router-link>
+
+      <!-- PS批量套图工具 -->
+      <router-link to="/ps-batch" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        <h2 class="text-xl font-semibold">PS批量套图</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">批量生成电商图片变体</p>
+      </router-link>
+
+      <!-- 图片裁剪+水印擦除工具 -->
+      <router-link to="/watermark-remover" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+        <h2 class="text-xl font-semibold">裁剪+去水印</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">批量裁剪图片并擦除水印</p>
+      </router-link>
     </div>
   </div>
 </template>
 
 <script setup>
-// 这是一个简单的导航页面，不需要脚本
+import { onMounted } from 'vue';
+
+// 调试：检查 window.electron 是否存在
+onMounted(() => {
+  console.log('=== Electron API 检测 ===');
+  console.log('window.electron:', window.electron);
+  console.log('isElectron:', window.electron?.platform?.isElectron);
+
+  if (window.electron) {
+    console.log('✅ Electron API 已成功加载！');
+    console.log('可用的 API:', Object.keys(window.electron));
+  } else {
+    console.error('❌ Electron API 未加载！');
+  }
+});
 </script>

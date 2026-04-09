@@ -53,18 +53,63 @@ export function initInpaintSession(progressCallback) {
         throw new Error("ONNX Runtime is not available.");
       }
 
+      // 配置 WASM 环境
+      ort.env.wasm.wasmPaths = '/';
+      ort.env.wasm.numThreads = 1; // 强制使用单线程
+      ort.env.wasm.simd = true; // 启用SIMD加速
+
+      console.log('=== ONNX Runtime 配置 ===');
+      console.log('WASM 路径:', ort.env.wasm.wasmPaths);
+      console.log('线程数:', ort.env.wasm.numThreads);
+      console.log('SIMD:', ort.env.wasm.simd);
+
       const modelPath = new URL('/inpaint.onnx', window.location.href).toString();
-      const modelBuffer = await fetchWithProgress(modelPath, progressCallback);
+      console.log('模型路径:', modelPath);
 
-      const session = await ort.InferenceSession.create(modelBuffer, {
-        executionProviders: [{
-          name: 'wasm',
-          wasmPaths: './',
-        }],
+      // 下载模型文件（0-80%）
+      console.log('开始下载模型文件...');
+      const startTime = Date.now();
+      const modelBuffer = await fetchWithProgress(modelPath, (progress) => {
+        if (progressCallback) {
+          progressCallback(progress * 0.8);
+        }
       });
+      const downloadTime = Date.now() - startTime;
+      console.log(`模型文件下载完成，大小: ${(modelBuffer.byteLength / 1024 / 1024).toFixed(2)}MB，耗时: ${(downloadTime / 1000).toFixed(2)}秒`);
 
-      resolve(session);
+      // 创建推理会话（80-100%）
+      if (progressCallback) {
+        progressCallback(80);
+      }
+      console.log('开始创建推理会话...');
+      const sessionStartTime = Date.now();
+
+      try {
+        const session = await ort.InferenceSession.create(modelBuffer, {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'basic',
+        });
+
+        const sessionTime = Date.now() - sessionStartTime;
+        console.log(`推理会话创建完成，耗时: ${(sessionTime / 1000).toFixed(2)}秒`);
+        console.log('使用的执行提供者:', session.executionProviders);
+
+        if (progressCallback) {
+          progressCallback(100);
+        }
+
+        resolve(session);
+      } catch (sessionError) {
+        console.error('创建推理会话失败:', sessionError);
+        console.error('错误类型:', sessionError.name);
+        console.error('错误消息:', sessionError.message);
+        console.error('错误堆栈:', sessionError.stack);
+        throw new Error(`推理会话创建失败: ${sessionError.message}`);
+      }
     } catch (error) {
+      console.error('=== 初始化失败 ===');
+      console.error('错误:', error);
+      console.error('错误堆栈:', error.stack);
       reject(error);
     }
   });
