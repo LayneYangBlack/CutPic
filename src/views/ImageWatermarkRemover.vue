@@ -27,99 +27,100 @@
     </div>
   </div>
 
-  <div class="w-full max-w-7xl mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-6">图片裁剪 + 水印擦除工具</h1>
-
-    <!-- 图片上传区域 -->
-    <div v-if="images.length === 0" class="flex items-center justify-center w-full">
-      <label
-        for="dropzone-file"
-        class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-      >
-        <div class="flex flex-col items-center justify-center pt-5 pb-6">
-          <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p class="mb-2 text-sm text-gray-500">
-            <span class="font-semibold">点击上传</span> 或拖拽图片到此
-          </p>
-          <p class="text-xs text-gray-500">支持多张图片 (PNG, JPG, WEBP)</p>
-        </div>
-        <input
-          id="dropzone-file"
-          type="file"
-          class="hidden"
-          @change="handleImageUpload"
-          accept="image/*"
-          multiple
-        />
+  <div class="w-full">
+    <!-- 顶部标题 + 上传入口 -->
+    <div class="mb-4 flex items-center justify-between">
+      <h1 class="text-xl font-bold text-gray-800">批量裁剪 + 水印擦除</h1>
+      <label v-if="images.length > 0" class="cursor-pointer">
+        <span class="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 transition-colors">
+          + 添加图片
+        </span>
+        <input type="file" class="hidden" @change="handleImageUpload" accept="image/*" multiple />
       </label>
     </div>
 
-    <!-- 编辑工作区 -->
-    <div v-else class="grid grid-cols-12 gap-4">
-      <!-- 左侧工具栏 -->
-      <div class="col-span-2">
+    <!-- 上传区域（无图片时） -->
+    <div v-if="images.length === 0" class="flex items-center justify-center w-full">
+      <label
+        for="dropzone-file"
+        class="flex flex-col items-center justify-center w-full h-72 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
+      >
+        <div class="flex flex-col items-center justify-center">
+          <svg class="w-10 h-10 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <p class="mb-1 text-sm text-gray-500">
+            <span class="font-semibold text-blue-500">点击上传</span> 或拖拽图片到此
+          </p>
+          <p class="text-xs text-gray-400">支持多张图片（PNG、JPG、WEBP），支持批量处理</p>
+        </div>
+        <input id="dropzone-file" type="file" class="hidden" @change="handleImageUpload" accept="image/*" multiple />
+      </label>
+    </div>
+
+    <!-- 工作区（有图片时） -->
+    <div v-else class="grid grid-cols-12 gap-4" style="min-height: 580px;">
+
+      <!-- 左侧：工具面板 -->
+      <div class="col-span-2 flex flex-col gap-4">
         <ToolBar
           :current-tool="currentTool"
           :can-undo="editorRef?.canUndo || false"
           :can-redo="editorRef?.canRedo || false"
           :is-processing="isProcessing"
+          :crop-info="currentImage?.cropArea || null"
           @tool-select="currentTool = $event"
           @undo="editorRef?.handleUndo()"
           @redo="editorRef?.handleRedo()"
           @clear="editorRef?.clearMask()"
           @export="handleExport"
         />
-      </div>
 
-      <!-- 中间画布区域 -->
-      <div class="col-span-7">
         <!-- 参数设置 -->
-        <div class="mb-4 p-4 bg-white rounded-lg shadow">
-          <h3 class="text-lg font-semibold mb-3">参数设置</h3>
-          <div class="grid grid-cols-2 gap-4">
+        <div class="p-3 bg-white rounded-lg shadow">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">输出尺寸</p>
+          <div class="flex flex-col gap-2">
             <div>
-              <label class="block text-sm font-medium mb-1">目标宽度 (px)</label>
+              <label class="block text-xs text-gray-500 mb-0.5">宽度 (px)</label>
               <input
                 v-model.number="targetWidth"
                 type="number"
                 min="100"
                 max="5000"
-                class="w-full px-3 py-2 border rounded"
+                class="w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:border-blue-400"
               />
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">目标高度 (px)</label>
+              <label class="block text-xs text-gray-500 mb-0.5">高度 (px)</label>
               <input
                 v-model.number="targetHeight"
                 type="number"
                 min="100"
                 max="5000"
-                class="w-full px-3 py-2 border rounded"
+                class="w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:border-blue-400"
               />
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">画笔大小: {{ brushSize }}px</label>
-              <input
-                v-model.number="brushSize"
-                type="range"
-                min="5"
-                max="100"
-                class="w-full"
-              />
+            <!-- 画笔大小（仅擦除模式） -->
+            <div v-if="currentTool === 'erase'">
+              <label class="block text-xs text-gray-500 mb-0.5">画笔大小: {{ brushSize }}px</label>
+              <input v-model.number="brushSize" type="range" min="5" max="100" class="w-full" />
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 提示信息 -->
-        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-          <p class="text-sm text-blue-700">
-            {{ images.length > 1
-              ? '在第一张图片上涂抹水印区域，该蒙版将自动应用到所有图片'
-              : '使用画笔涂抹需要擦除的水印区域'
-            }}
-          </p>
+      <!-- 中间：画布区域 -->
+      <div class="col-span-7 flex flex-col gap-3">
+        <!-- 操作提示 -->
+        <div class="px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+          <template v-if="isCropMode">
+            <strong>裁剪模式：</strong>拖拽角点调整裁剪框大小，拖拽框内移动位置
+            <span class="text-blue-500 ml-1">（每张图片的裁剪框独立保存）</span>
+          </template>
+          <template v-else>
+            <strong>擦除模式：</strong>用画笔涂抹需要去除的水印区域
+            <span v-if="images.length > 1" class="ml-1">（蒙版将应用到所有图片）</span>
+          </template>
         </div>
 
         <!-- 图片编辑器 -->
@@ -128,12 +129,16 @@
           :image-url="currentImageUrl"
           :current-tool="currentTool"
           :brush-size="brushSize"
+          :container-height="520"
+          :target-width="targetWidth"
+          :target-height="targetHeight"
           @mask-ready="handleMaskReady"
+          @crop-change="handleCropChange"
         />
 
         <!-- 进度条 -->
-        <div v-if="isProcessing" class="mt-4 p-4 bg-white rounded-lg shadow">
-          <p class="text-sm text-center text-blue-500 mb-2">
+        <div v-if="isProcessing" class="p-3 bg-white rounded-lg shadow">
+          <p class="text-sm text-center text-blue-500 mb-1.5">
             正在处理: {{ Math.round(progress * 100) }}% ({{ doneCount }} / {{ images.length }})
           </p>
           <div class="w-full bg-gray-200 rounded-full h-2">
@@ -145,28 +150,23 @@
         </div>
       </div>
 
-      <!-- 右侧批量列表 -->
-      <div class="col-span-3">
+      <!-- 右侧：批量列表 -->
+      <div class="col-span-3 flex flex-col gap-3">
         <BatchList
           :images="images"
           :current-index="currentIndex"
+          :is-crop-mode="isCropMode"
           @select="handleSelectImage"
+          @remove="handleRemoveImage"
+          @clear-all="handleClearAll"
         />
-
-        <!-- 重置按钮 -->
-        <button
-          @click="handleReset"
-          class="w-full mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-        >
-          全部重置
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import ImageEditor from '../components/watermark/ImageEditor.vue';
 import ToolBar from '../components/watermark/ToolBar.vue';
 import BatchList from '../components/watermark/BatchList.vue';
@@ -174,163 +174,227 @@ import { useImageProcessor } from '../composables/useImageProcessor.js';
 import { loadImage } from '../utils/imageUtils.js';
 import { initInpaintSession } from '../adapters/inpainting.js';
 
-// 编辑器引用
-const editorRef = ref(null);
-
+// ────────────────────────────────────────────────────────────────
 // 状态
+// ────────────────────────────────────────────────────────────────
+
+const editorRef = ref(null);
 const images = ref([]);
 const currentIndex = ref(0);
+const currentTool = ref('crop-rect');
 const targetWidth = ref(800);
 const targetHeight = ref(800);
 const brushSize = ref(40);
-const maskTemplate = ref(null); // 蒙版模板（用于批量处理）
+const maskTemplate = ref(null);  // 擦除蒙版 Canvas（所有图共用）
 const isProcessing = ref(false);
 const progress = ref(0);
 const isModelLoading = ref(true);
 const modelLoadProgress = ref(0);
 
-// 图像处理器
 const { processImage } = useImageProcessor();
 
-// 跳过模型加载
+const isCropMode = computed(() => currentTool.value === 'crop-rect' || currentTool.value === 'crop-circle');
+
+// 当前选中的图片对象
+const currentImage = computed(() => images.value[currentIndex.value] || null);
+
+// 当前图片URL
+const currentImageUrl = computed(() => currentImage.value?.url || '');
+
+// 已完成数量
+const doneCount = computed(() => images.value.filter(img => img.status === 'done').length);
+
+// ────────────────────────────────────────────────────────────────
+// 模型初始化
+// ────────────────────────────────────────────────────────────────
+
 const skipModelLoading = () => {
-  console.log('用户选择跳过AI模型加载');
   isModelLoading.value = false;
 };
 
-// 初始化ONNX模型
 onMounted(async () => {
   try {
-    console.log('开始加载ONNX模型...');
-    await initInpaintSession((progress) => {
-      modelLoadProgress.value = progress;
-      console.log('模型加载进度:', progress.toFixed(2) + '%');
+    await initInpaintSession((p) => {
+      modelLoadProgress.value = p;
     });
-    console.log('ONNX模型加载完成');
-
-    // 等待一小段时间确保UI更新到100%
     await new Promise(resolve => setTimeout(resolve, 300));
     isModelLoading.value = false;
   } catch (error) {
     console.error('ONNX模型加载失败:', error);
-    console.error('错误详情:', error.message, error.stack);
-    isModelLoading.value = false; // 即使失败也关闭加载提示
+    isModelLoading.value = false;
     alert(`模型加载失败: ${error.message}\n\n将使用简单修复算法代替（效果可能较差）`);
   }
 });
 
-// 当前图片URL
-const currentImageUrl = computed(() => {
-  if (images.value.length === 0) return '';
-  return images.value[currentIndex.value]?.url || '';
-});
+// ────────────────────────────────────────────────────────────────
+// 事件处理
+// ────────────────────────────────────────────────────────────────
 
-// 已完成数量
-const doneCount = computed(() => {
-  return images.value.filter(img => img.status === 'done').length;
-});
-
-// 图片上传处理
 const handleImageUpload = (e) => {
   const files = e.target.files;
   if (!files || files.length === 0) return;
 
-  // 转换为图片对象数组
-  images.value = Array.from(files).map((file, index) => ({
+  const newImages = Array.from(files).map((file, index) => ({
     id: Date.now() + index,
     file,
     name: file.name,
     url: URL.createObjectURL(file),
     status: 'pending',
     progress: 0,
-    result: null
+    result: null,
+    cropArea: null  // 每张图片独立保存自己的裁剪区域（原图坐标）
   }));
 
-  currentIndex.value = 0;
+  if (images.value.length === 0) {
+    images.value = newImages;
+    currentIndex.value = 0;
+  } else {
+    images.value = [...images.value, ...newImages];
+  }
 };
 
-// 蒙版准备就绪
+// 蒙版 Canvas 引用更新（擦除模式共用）
 const handleMaskReady = (maskCanvas) => {
-  // 保存蒙版模板（用于批量处理）
   maskTemplate.value = maskCanvas;
 };
 
-// 选择图片
-const handleSelectImage = (index) => {
-  currentIndex.value = index;
+/**
+ * 裁剪区域变化时，实时同步到当前图片对象
+ * 每张图片有自己的 cropArea，这样切换时可以恢复
+ */
+const handleCropChange = (area) => {
+  if (currentImage.value) {
+    currentImage.value.cropArea = area;
+  }
 };
 
+/**
+ * 切换图片时：
+ * 1. 先保存当前编辑器的裁剪区域到当前图片（通过 getCropArea）
+ * 2. 切换到新图片
+ * 3. 等图片加载完毕后，调用 setCropBox 恢复新图片的裁剪区域
+ */
+const handleSelectImage = async (index) => {
+  if (index === currentIndex.value) return;
+
+  // 保存当前图片的最新裁剪区域
+  if (currentImage.value && editorRef.value) {
+    const latest = editorRef.value.getCropArea?.();
+    if (latest) currentImage.value.cropArea = latest;
+  }
+
+  currentIndex.value = index;
+
+  // 等图片加载完毕（watch imageUrl → loadImageToCanvas），然后恢复裁剪框
+  await nextTick();
+  // 给 ImageEditor 的图片加载留一点时间（loadImage 是异步的）
+  // 用一个短暂的 watch + 回调更稳健，但这里用简单的 setTimeout 配合 nextTick
+  setTimeout(() => {
+    const savedArea = images.value[index]?.cropArea;
+    editorRef.value?.setCropBox?.(savedArea || null);
+  }, 50);
+};
+
+/**
+ * 移除单张图片
+ */
+const handleRemoveImage = (index) => {
+  const img = images.value[index];
+  if (img?.url) URL.revokeObjectURL(img.url);
+  images.value.splice(index, 1);
+
+  if (images.value.length === 0) {
+    currentIndex.value = 0;
+    maskTemplate.value = null;
+  } else {
+    // 保证 currentIndex 不越界
+    currentIndex.value = Math.min(currentIndex.value, images.value.length - 1);
+  }
+};
+
+/**
+ * 清空所有图片
+ */
+const handleClearAll = () => {
+  images.value.forEach(img => {
+    if (img.url) URL.revokeObjectURL(img.url);
+  });
+  images.value = [];
+  currentIndex.value = 0;
+  maskTemplate.value = null;
+  isProcessing.value = false;
+  progress.value = 0;
+};
+
+// ────────────────────────────────────────────────────────────────
 // 导出处理
+// ────────────────────────────────────────────────────────────────
+
 const handleExport = async () => {
   if (images.value.length === 0) {
     alert('请先上传图片');
     return;
   }
 
-  if (!maskTemplate.value) {
-    alert('请先涂抹需要擦除的水印区域');
-    return;
-  }
-
-  console.log('=== 开始导出处理 ===');
-  console.log('图片数量:', images.value.length);
-  console.log('蒙版模板:', maskTemplate.value);
-
-  // 检查蒙版是否为空（检查是否有非透明像素）
-  const maskCtx = maskTemplate.value.getContext('2d');
-  const maskData = maskCtx.getImageData(0, 0, maskTemplate.value.width, maskTemplate.value.height);
-  let hasContent = false;
-  for (let i = 3; i < maskData.data.length; i += 4) {
-    if (maskData.data[i] > 0) { // 检查alpha通道
-      hasContent = true;
-      break;
+  // 擦除模式下必须有蒙版内容
+  if (!isCropMode.value) {
+    if (!maskTemplate.value) {
+      alert('请先涂抹需要擦除的水印区域');
+      return;
+    }
+    const maskCtx = maskTemplate.value.getContext('2d');
+    const maskData = maskCtx.getImageData(0, 0, maskTemplate.value.width, maskTemplate.value.height);
+    const hasContent = Array.from({ length: maskData.data.length / 4 }).some((_, i) => maskData.data[i * 4 + 3] > 0);
+    if (!hasContent) {
+      alert('请先在图片上绘制需要擦除的区域');
+      return;
     }
   }
 
-  if (!hasContent) {
-    alert('请先在图片上绘制需要擦除的区域');
-    return;
+  // 保存当前图片的最新裁剪区域（防止用户来不及触发 crop-change）
+  if (currentImage.value && editorRef.value) {
+    const latest = editorRef.value.getCropArea?.();
+    if (latest) currentImage.value.cropArea = latest;
   }
-
-  console.log('蒙版检查通过，开始处理...');
 
   isProcessing.value = true;
   progress.value = 0;
 
   try {
-    // 批量处理所有图片
     for (let i = 0; i < images.value.length; i++) {
       const image = images.value[i];
       image.status = 'processing';
 
-      console.log(`\n处理第 ${i + 1}/${images.value.length} 张图片: ${image.name}`);
-
       try {
-        // 加载原始图片
         const img = await loadImage(image.url);
-        console.log('原始图片尺寸:', img.width, 'x', img.height);
 
-        // 计算裁剪区域（整个图片）
-        const cropArea = {
-          x: 0,
-          y: 0,
-          width: img.width,
-          height: img.height
-        };
+        // 每张图片使用自己保存的裁剪区域；没有则全图
+        let resolvedCropArea;
+        if (isCropMode.value && image.cropArea) {
+          resolvedCropArea = {
+            x: image.cropArea.x,
+            y: image.cropArea.y,
+            width: image.cropArea.width,
+            height: image.cropArea.height
+          };
+        } else {
+          resolvedCropArea = { x: 0, y: 0, width: img.width, height: img.height };
+        }
 
-        console.log('目��尺寸:', targetWidth.value, 'x', targetHeight.value);
-        console.log('蒙版尺寸:', maskTemplate.value.width, 'x', maskTemplate.value.height);
+        // 裁剪模式：maskSource 为 null（不做擦除）
+        const maskSource = isCropMode.value ? null : maskTemplate.value;
 
-        // 处理图片（裁剪 + 擦除水印）
+        // 圆形裁剪时加透明遮罩
+        const cropShape = (isCropMode.value && image.cropArea?.isCircle) ? 'circle' : null;
+
         const resultBlob = await processImage(
           img,
-          cropArea,
-          maskTemplate.value,
+          resolvedCropArea,
+          maskSource,
           targetWidth.value,
-          targetHeight.value
+          targetHeight.value,
+          cropShape
         );
-
-        console.log('处理完成，结果大小:', resultBlob.size, 'bytes');
 
         image.result = resultBlob;
         image.status = 'done';
@@ -343,46 +407,7 @@ const handleExport = async () => {
       progress.value = (i + 1) / images.value.length;
     }
 
-    // 导出结果
-    if (images.value.length === 1) {
-      // 单图：直接下载
-      const image = images.value[0];
-      if (image.result) {
-        const url = URL.createObjectURL(image.result);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `processed_${image.name}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-    } else {
-      // 多图：打包为ZIP
-      const successImages = images.value.filter(img => img.status === 'done' && img.result);
-      if (successImages.length === 0) {
-        throw new Error('没有成功处理的图片可供导出');
-      }
-
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-
-      for (const image of successImages) {
-        const fileName = `processed_${image.name}`;
-        zip.file(fileName, image.result);
-      }
-
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'watermark-removed.zip';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-
+    await exportResults();
     alert('处理完成！');
   } catch (error) {
     console.error('批量处理失败:', error);
@@ -392,19 +417,35 @@ const handleExport = async () => {
   }
 };
 
-// 重置
-const handleReset = () => {
-  // 释放URL对象
-  images.value.forEach(img => {
-    if (img.url) {
-      URL.revokeObjectURL(img.url);
-    }
-  });
+const exportResults = async () => {
+  const successImages = images.value.filter(img => img.status === 'done' && img.result);
+  if (successImages.length === 0) throw new Error('没有成功处理的图片可供导出');
 
-  images.value = [];
-  currentIndex.value = 0;
-  maskTemplate.value = null;
-  isProcessing.value = false;
-  progress.value = 0;
+  if (successImages.length === 1) {
+    const image = successImages[0];
+    const url = URL.createObjectURL(image.result);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `processed_${image.name}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } else {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    for (const image of successImages) {
+      zip.file(`processed_${image.name}`, image.result);
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'processed-images.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 };
 </script>

@@ -147,17 +147,23 @@ export function useImageProcessor() {
   /**
    * 完整处理流程：裁剪 + 擦除水印
    * @param {string|HTMLImageElement} imageSource - 图片源
-   * @param {Object} cropArea - 裁剪区域
-   * @param {string|HTMLCanvasElement} maskSource - 蒙版源
+   * @param {Object} cropArea - 裁剪区域 {x, y, width, height}
+   * @param {string|HTMLCanvasElement|null} maskSource - 蒙版源（null 时跳过擦除）
    * @param {number} targetWidth - 目标宽度
    * @param {number} targetHeight - 目标高度
+   * @param {'circle'|null} cropShape - 圆形裁剪时传 'circle'，会在结果上叠加圆形透明遮罩
    * @returns {Promise<Blob>} 处理后的图片Blob
    */
-  const processImage = async (imageSource, cropArea, maskSource, targetWidth, targetHeight) => {
+  const processImage = async (imageSource, cropArea, maskSource, targetWidth, targetHeight, cropShape = null) => {
     // 1. 先裁剪
-    const croppedBlob = await cropAndResize(imageSource, cropArea, targetWidth, targetHeight);
+    let croppedBlob = await cropAndResize(imageSource, cropArea, targetWidth, targetHeight);
 
-    // 2. 如果有蒙版，则擦除水印
+    // 2. 圆形裁剪：在结果图上叠加椭圆透明遮罩（保留椭圆内的像素，其余透明）
+    if (cropShape === 'circle') {
+      croppedBlob = await applyCircleMask(croppedBlob, targetWidth, targetHeight);
+    }
+
+    // 3. 如果有蒙版，则擦除水印
     if (maskSource) {
       const croppedUrl = URL.createObjectURL(croppedBlob);
       try {
@@ -173,9 +179,38 @@ export function useImageProcessor() {
     return croppedBlob;
   };
 
+  /**
+   * 给图片叠加椭圆遮罩，椭圆外的区域变为透明
+   * @param {Blob} imageBlob - 原始图片 Blob
+   * @param {number} width - 画布宽度
+   * @param {number} height - 画布高度
+   * @returns {Promise<Blob>} 带透明背景的 PNG Blob
+   */
+  const applyCircleMask = async (imageBlob, width, height) => {
+    const url = URL.createObjectURL(imageBlob);
+    try {
+      const img = await loadImage(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      // 绘制椭圆路径，clip 后绘制图片（椭圆外自动透明）
+      ctx.beginPath();
+      ctx.ellipse(width / 2, height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(img, 0, 0, width, height);
+
+      return canvasToBlob(canvas, 'image/png');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
   return {
     cropAndResize,
     eraseWatermark,
+    applyCircleMask,
     processImage
   };
 }
