@@ -34,6 +34,14 @@
         >
           JSON自动排版
         </button>
+        <button
+          @click="mode = 'acrylic'"
+          :class="['w-full rounded-md py-2.5 text-sm font-medium leading-5',
+            mode === 'acrylic' ? 'bg-white shadow' : 'text-gray-700 hover:bg-white/[0.5]'
+          ]"
+        >
+          亚克力排版
+        </button>
       </div>
     </div>
 
@@ -42,6 +50,7 @@
       <MultiBadgeLayout v-if="mode === 'multi'" />
       <CdrBadgeLayout v-if="mode === 'cdr'" />
       <JsonBadgeLayout v-if="mode === 'json'" />
+      <AcrylicBadgeLayout v-if="mode === 'acrylic'" />
     </div>
   </div>
 </template>
@@ -52,8 +61,9 @@ import SingleBadgeLayout from '../components/SingleBadgeLayout.vue';
 import MultiBadgeLayout from '../components/MultiBadgeLayout.vue';
 import CdrBadgeLayout from '../components/CdrBadgeLayout.vue';
 import JsonBadgeLayout from '../components/JsonBadgeLayout.vue';
+import AcrylicBadgeLayout from '../components/AcrylicBadgeLayout.vue';
 
-const mode = ref('single'); // 'single', 'multi', 'cdr', or 'json'
+const mode = ref('single'); // 'single', 'multi', 'cdr', 'json', or 'acrylic'
 </script>
 
 <style scoped>
