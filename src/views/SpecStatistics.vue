@@ -145,30 +145,33 @@ const processData = (data) => {
     const productName = row['商品名称'] || '';
     const attributes = row['商品属性集'] || '';
     const orderInfo = row['备货单'] || '';
+    const skuCode = row['SKU货号'] || ''; // 读取SKU货号字段
 
     let basePcs = 0;
     let spec = 'N/A';
 
-    // New Logic: Prioritize parsing attributes first
-    // Try to match `(spec) non-digit-separator (pcs)` format, e.g., "44mm-30pcs", "44mm / 30pcs"
+    // 数据源优先级：商品属性集 > 商品名称 > SKU货号（兜底）
+
+    // 尝试从商品属性集匹配 "规格-数量" 组合格式，如 "44mm-30pcs", "44mm / 30pcs"
     const multiSpecMatch = attributes.match(/((\d+(\.\d+)?)(cm|mm))\D+(\d+)\s*(pcs|个)/i);
 
     if (multiSpecMatch) {
-      // Case 1: Multi-spec name, attributes contain both spec and pcs
+      // Case 1: 商品属性集包含完整的规格和数量信息
       let value = parseFloat(multiSpecMatch[2]);
       const unit = multiSpecMatch[4];
       if (unit === 'cm') {
-        value *= 10; // Convert cm to mm
+        value *= 10; // 转换cm为mm
       }
       spec = `${value}mm`;
       basePcs = parseInt(multiSpecMatch[5], 10);
     } else {
-      // Case 2: Single-spec name, parse spec and pcs separately
-      
-      // 1. Find Spec: Check attributes first, then fall back to name
+      // Case 2: 分别解析规格和数量
+
+      // 1. 解析规格：优先级 商品属性集 > 商品名称 > SKU货号
       const specRegex = /(\d+(\.\d+)?)\s*(cm|mm)/i;
       const specMatchInAttr = attributes.match(specRegex);
       const specMatchInName = productName.match(specRegex);
+      const specMatchInSku = skuCode.match(specRegex);
 
       if (specMatchInAttr) {
         let value = parseFloat(specMatchInAttr[1]);
@@ -184,9 +187,17 @@ const processData = (data) => {
           value *= 10;
         }
         spec = `${Math.round(value)}mm`;
+      } else if (specMatchInSku) {
+        // 兜底：从SKU货号提取规格
+        let value = parseFloat(specMatchInSku[1]);
+        const unit = specMatchInSku[3].toLowerCase();
+        if (unit === 'cm') {
+          value *= 10;
+        }
+        spec = `${Math.round(value)}mm`;
       }
 
-      // 2. Find PCS, check attributes first, then name
+      // 2. 解析PCS数量：优先级 商品属性集 > 商品名称 > SKU货号
       const pcsInAttrMatch = attributes.match(/(\d+)\s*(pcs|个)/i);
       if (pcsInAttrMatch) {
         basePcs = parseInt(pcsInAttrMatch[1], 10);
@@ -194,13 +205,25 @@ const processData = (data) => {
         const pcsInNameMatch = productName.match(/(\d+)\s*(pcs|个)/i);
         if (pcsInNameMatch) {
           basePcs = parseInt(pcsInNameMatch[1], 10);
+        } else {
+          // 兜底：从SKU货号提取PCS
+          const pcsInSkuMatch = skuCode.match(/(\d+)\s*(pcs|个)/i);
+          if (pcsInSkuMatch) {
+            basePcs = parseInt(pcsInSkuMatch[1], 10);
+          }
         }
       }
 
-      // 3. Fallback for spec if it wasn't found and attribute is not a PCS value
+      // 3. 如果规格仍未找到，且商品属性集不是纯PCS值，则使用商品属性集作为规格
       if (spec === 'N/A' && attributes && !/^\s*\d+\s*(pcs|个)\s*$/i.test(attributes)) {
         spec = attributes;
       }
+    }
+
+    // 检查SKU货号是否包含plastic，如果包含则在规格前加"塑料"前缀
+    const isPlastic = /plastic/i.test(skuCode);
+    if (isPlastic && spec !== 'N/A') {
+      spec = `塑料${spec}`;
     }
 
     // Get Multiplier (now allows space or comma as separator)
