@@ -7,6 +7,7 @@ import SpecStatistics from '../views/SpecStatistics.vue';
 import BadgePage from '../views/BadgePage.vue' // New import
 import PSBatchTemplate from '../views/PSBatchTemplate.vue'; // PS批量套图
 import ImageWatermarkRemover from '../views/ImageWatermarkRemover.vue'; // 图片裁剪+水印擦除
+import AIProductImage from '../views/AIProductImage.vue'; // AI产品图生成器
 
 const routes = [
   {
@@ -50,6 +51,11 @@ const routes = [
     path: '/watermark-remover',
     name: 'ImageWatermarkRemover',
     component: ImageWatermarkRemover
+  },
+  {
+    path: '/ai-product-image',
+    name: 'AIProductImage',
+    component: AIProductImage
   },
 ]
 

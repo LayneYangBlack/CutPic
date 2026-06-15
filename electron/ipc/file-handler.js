@@ -295,4 +295,86 @@ ipcMain.handle('file:write-excel', async (event, data, defaultName) => {
   }
 });
 
+/**
+ * 批量保存图片到文件夹（每组一个子文件夹）
+ * 弹出目录选择框，然后在选中目录下创建子文件夹并写入图片
+ * results: Array<{ folderName: string, images: Array<{ filename: string, base64: string }> }>
+ */
+ipcMain.handle('file:save-batch-results', async (event, results) => {
+  try {
+    const { dialog } = await import('electron');
+
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: '选择保存目录',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+
+    if (canceled || !filePaths?.[0]) {
+      return { success: false, canceled: true };
+    }
+
+    const baseDir = filePaths[0];
+    const saved = [];
+
+    for (const group of results) {
+      // 文件夹名：清理非法字符，最长 50 字符
+      const safeName = group.folderName
+        .replace(/[\\/:*?"<>|]/g, '_')
+        .substring(0, 50)
+        .trim() || `group_${Date.now()}`;
+
+      const groupDir = path.join(baseDir, safeName);
+      await fs.mkdir(groupDir, { recursive: true });
+
+      for (const img of group.images) {
+        const base64Data = img.base64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const filePath = path.join(groupDir, img.filename);
+        await fs.writeFile(filePath, buffer);
+        saved.push(filePath);
+      }
+    }
+
+    return { success: true, baseDir, count: saved.length };
+  } catch (error) {
+    console.error('批量保存失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 保存 zip 文件
+ * autoPath=false → 弹出另存为对话框
+ * autoPath=true  → 直接保存到 savePath（不弹框），savePath 为空时用 Downloads
+ */
+ipcMain.handle('file:save-zip', async (event, base64Zip, defaultName, autoPath = false, savePath = '') => {
+  try {
+    const { app } = await import('electron');
+
+    let filePath;
+    if (autoPath) {
+      // 用指定目录，没有则 fallback 到系统 Downloads
+      const baseDir = savePath || app.getPath('downloads');
+      filePath = path.join(baseDir, defaultName);
+    } else {
+      const { dialog } = await import('electron');
+      const result = await dialog.showSaveDialog({
+        title: '选择保存位置',
+        defaultPath: path.join(savePath || app.getPath('downloads'), defaultName),
+        filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }],
+      });
+      if (result.canceled || !result.filePath) return { success: false, canceled: true };
+      filePath = result.filePath;
+    }
+
+    const buffer = Buffer.from(base64Zip, 'base64');
+    await fs.writeFile(filePath, buffer);
+    console.log(`[ZIP] 已保存: ${filePath}`);
+    return { success: true, path: filePath };
+  } catch (error) {
+    console.error('保存 zip 失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 console.log('✅ 文件处理模块已加载');

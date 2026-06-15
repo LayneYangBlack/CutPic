@@ -32,6 +32,10 @@ contextBridge.exposeInMainWorld('electron', {
     // 保存文件（选择保存位置）
     save: (buffer, defaultName) => ipcRenderer.invoke('file:save', buffer, defaultName),
 
+    // 保存 zip：autoPath=true 自动存到 savePath（或 Downloads），false 弹框
+    saveZip: (base64Zip, defaultName, autoPath = false, savePath = '') =>
+      ipcRenderer.invoke('file:save-zip', base64Zip, defaultName, autoPath, savePath),
+
     // 保存Blob文件
     saveBlob: async (blob, defaultName) => {
       const arrayBuffer = await blob.arrayBuffer();
@@ -86,6 +90,16 @@ contextBridge.exposeInMainWorld('electron', {
 
     // 获取用户桌面目录
     getDesktopPath: () => ipcRenderer.invoke('path:get-desktop'),
+  },
+
+  // ============================================
+  // AI 图像生成 API（主进程发请求，绕过 CORS）
+  // ============================================
+  ai: {
+    // 文本生图
+    generateImage: (params) => ipcRenderer.invoke('ai:generate-image', params),
+    // 图生图
+    generateImageFromImage: (params) => ipcRenderer.invoke('ai:generate-image-from-image', params),
   },
 });
 

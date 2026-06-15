@@ -31,7 +31,8 @@ export default defineConfig(({ mode }) => {
             build: {
               outDir: 'dist-electron',
               rollupOptions: {
-                external: ['electron'],
+                // Node 内置模块和 electron 都不打包，直接 require
+                external: ['electron', 'https', 'http', 'url', 'path', 'fs', 'fs/promises', 'buffer', 'os'],
               },
             },
             // 设置环境变量，让主进程知道是开发模式
@@ -41,31 +42,10 @@ export default defineConfig(({ mode }) => {
           },
         },
         {
-          // 预加载脚本
+          // 预加载脚本（vite-plugin-electron 默认会编译为 CJS）
           entry: 'electron/preload.js',
-          // 预加载脚本编译完成后重新加载窗口（不重启进程）
           onstart({ reload }) {
             reload();
-          },
-          vite: {
-            build: {
-              outDir: 'dist-electron',
-              // 强制编译为 CommonJS 格式（Electron preload 必须使用 CJS）
-              lib: {
-                entry: 'electron/preload.js',
-                formats: ['cjs'], // 关键：强制 CommonJS 格式
-                fileName: () => 'preload.js',
-              },
-              rollupOptions: {
-                external: ['electron'],
-                output: {
-                  // 确保输出为 CommonJS 格式
-                  format: 'cjs',
-                  // 使用 require 而不是 import
-                  exports: 'auto',
-                },
-              },
-            },
           },
         },
       ]),
@@ -99,12 +79,18 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      // 配置 WASM 文件的 MIME 类型
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin',
         'Cross-Origin-Embedder-Policy': 'require-corp'
       },
-      // 配置静态资源的 MIME 类型
+      // 开发环境代理：解决浏览器 CORS 问题
+      proxy: {
+        '/ai-api': {
+          target: 'https://bmai.kun8.vip',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ai-api/, ''),
+        },
+      },
       fs: {
         strict: false
       }

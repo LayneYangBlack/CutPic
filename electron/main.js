@@ -44,6 +44,7 @@ function createWindow() {
       // 启用Node集成（通过预加载脚本暴露API）
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false, // 关闭沙箱，允许 ESM 格式的 preload 加载
       // 启用webview标签（如果需要）
       webviewTag: false,
     },
@@ -112,6 +113,7 @@ app.on('window-all-closed', () => {
 // 导入IPC处理模块
 import './ipc/file-handler.js';
 import './ipc/dialog-handler.js';
+import './ipc/ai-handler.js'; // AI 图像生成（绕过 CORS）
 
 // 基础示例：Ping-Pong测试
 ipcMain.handle('ping', () => {
