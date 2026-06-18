@@ -51,6 +51,13 @@
         <h2 class="text-xl font-semibold">裁剪+去水印</h2>
         <p class="text-gray-500 dark:text-gray-400 mt-2">批量裁剪图片并擦除水印</p>
       </router-link>
+
+      <!-- HEIC 转 JPG 工具 -->
+      <router-link to="/heic2jpg" class="flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <svg class="w-16 h-16 mb-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        <h2 class="text-xl font-semibold">HEIC 转 JPG</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">批量将 iPhone HEIC 图片转为 JPG/PNG</p>
+      </router-link>
     </div>
   </div>
 </template>

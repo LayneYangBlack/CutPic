@@ -7,6 +7,7 @@ import SpecStatistics from '../views/SpecStatistics.vue';
 import BadgePage from '../views/BadgePage.vue' // New import
 import PSBatchTemplate from '../views/PSBatchTemplate.vue'; // PS批量套图
 import ImageWatermarkRemover from '../views/ImageWatermarkRemover.vue'; // 图片裁剪+水印擦除
+import Heic2Jpg from '../views/Heic2Jpg.vue'
 
 const routes = [
   {
@@ -50,6 +51,11 @@ const routes = [
     path: '/watermark-remover',
     name: 'ImageWatermarkRemover',
     component: ImageWatermarkRemover
+  },
+  {
+    path: '/heic2jpg',
+    name: 'Heic2Jpg',
+    component: Heic2Jpg
   },
 ]
 
