@@ -4,7 +4,20 @@ import * as ort from 'onnxruntime-web';
 // --- Session Management ---
 let sessionPromise = null;
 
+const MODEL_CACHE_NAME = 'inpaint-model-v1';
+
 async function fetchWithProgress(url, progressCallback) {
+    // 命中缓存则直接返回，跳过网络下载
+    if ('caches' in window) {
+        const cache = await caches.open(MODEL_CACHE_NAME);
+        const cached = await cache.match(url);
+        if (cached) {
+            console.log('模型文件命中缓存，跳过下载');
+            if (progressCallback) progressCallback(80);
+            return cached.arrayBuffer();
+        }
+    }
+
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
@@ -12,38 +25,55 @@ async function fetchWithProgress(url, progressCallback) {
     const contentLength = response.headers.get('content-length');
     if (!contentLength) {
         console.warn('Content-Length header not found. Progress will not be available.');
-        return response.arrayBuffer();
+        const buffer = await response.arrayBuffer();
+        // 写入缓存（无进度版本）
+        if ('caches' in window) {
+            const cache = await caches.open(MODEL_CACHE_NAME);
+            await cache.put(url, new Response(buffer.slice(0)));
+        }
+        return buffer;
     }
 
     const total = parseInt(contentLength, 10);
     let loaded = 0;
+    const chunks = [];
 
     const reader = response.body.getReader();
-    const stream = new ReadableStream({
-        start(controller) {
-            function push() {
-                reader.read().then(({ done, value }) => {
-                    if (done) {
-                        controller.close();
-                        return;
-                    }
-                    loaded += value.length;
-                    if (progressCallback) {
-                        progressCallback((loaded / total) * 100);
-                    }
-                    controller.enqueue(value);
-                    push();
-                }).catch(error => {
-                    console.error(error);
-                    controller.error(error);
-                });
-            }
-            push();
-        }
-    });
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (progressCallback) progressCallback((loaded / total) * 100);
+    }
 
-    const blob = await new Response(stream).blob();
-    return blob.arrayBuffer();
+    // 合并所有 chunk
+    const buffer = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+        buffer.set(chunk, offset);
+        offset += chunk.length;
+    }
+    const arrayBuffer = buffer.buffer;
+
+    // 写入 Cache API，下次刷新直接命中
+    if ('caches' in window) {
+        const cache = await caches.open(MODEL_CACHE_NAME);
+        await cache.put(url, new Response(arrayBuffer.slice(0), {
+            headers: { 'Content-Type': 'application/octet-stream' },
+        }));
+        console.log('模型文件已写入缓存');
+    }
+
+    return arrayBuffer;
+}
+
+export async function checkModelCached() {
+  if (!('caches' in window)) return false;
+  const cache = await caches.open(MODEL_CACHE_NAME);
+  const modelUrl = new URL('/inpaint.onnx', window.location.href).toString();
+  const cached = await cache.match(modelUrl);
+  return !!cached;
 }
 
 export function initInpaintSession(progressCallback) {

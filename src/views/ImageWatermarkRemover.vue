@@ -172,7 +172,7 @@ import ToolBar from '../components/watermark/ToolBar.vue';
 import BatchList from '../components/watermark/BatchList.vue';
 import { useImageProcessor } from '../composables/useImageProcessor.js';
 import { loadImage } from '../utils/imageUtils.js';
-import { initInpaintSession } from '../adapters/inpainting.js';
+import { initInpaintSession, checkModelCached } from '../adapters/inpainting.js';
 
 // ────────────────────────────────────────────────────────────────
 // 状态
@@ -214,6 +214,14 @@ const skipModelLoading = () => {
 
 onMounted(async () => {
   try {
+    // 模型已缓存则静默在后台初始化，不显示 loading 界面
+    const cached = await checkModelCached();
+    if (cached) {
+      isModelLoading.value = false;
+      initInpaintSession().catch(err => console.error('模型后台初始化失败:', err));
+      return;
+    }
+
     await initInpaintSession((p) => {
       modelLoadProgress.value = p;
     });
