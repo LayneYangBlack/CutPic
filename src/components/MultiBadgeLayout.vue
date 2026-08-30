@@ -459,10 +459,10 @@ const generateLayout = () => {
 
     // 3️⃣ 计算单页能放多少个徽章
     // 统一使用CDR模式的参数来计算（这样才能准确判断是否满张）
-    const cdrMarginTop = 5;
-    const cdrMarginBottom = 5;
-    const cdrMarginLeft = 5;
-    const cdrMarginRight = 5;
+    const cdrMarginTop = 10;
+    const cdrMarginBottom = 10;
+    const cdrMarginLeft = 10;
+    const cdrMarginRight = 10;
     const cdrSpacingH = 2.0;
     const cdrSpacingV = 2.0;
     const cdrEdgePaddingH = 2.0;
