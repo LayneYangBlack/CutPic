@@ -85,8 +85,10 @@ export default defineConfig(({ mode }) => {
           main: resolve(__dirname, 'index.html')
         },
         output: {
-          entryFileNames: 'assets/[name].js',
-          chunkFileNames: 'assets/[name].js',
+          // JS 文件名加内容 hash：每次部署文件名变化，浏览器强制拉新，避免缓存旧代码
+          // assetFileNames 保持不带 hash：wasm/onnx 由库在运行时按路径加载，改名有风险
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name].[ext]'
         }
       }

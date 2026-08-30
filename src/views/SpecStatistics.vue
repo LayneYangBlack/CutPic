@@ -168,7 +168,21 @@ const copyToClipboard = async () => {
     const totalLines = totalRows.value.map(row => `${row.label}\t${row.value}`).join('\n');
     const textToCopy = `${header}\n${rows}\n${totalLines}\n总计\t${totalSum.value}`;
 
-    await navigator.clipboard.writeText(textToCopy);
+    // navigator.clipboard 仅在安全上下文（HTTPS/localhost）下存在，
+    // HTTP 部署环境会报 undefined，需降级用 execCommand 兜底
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(textToCopy);
+    } else {
+      // 兜底方案：创建临时textarea选中文本后执行复制命令
+      const textarea = document.createElement('textarea');
+      textarea.value = textToCopy;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0'; // 隐藏但仍在DOM中，避免页面跳动
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
     alert('已复制到剪贴板！可以直接粘贴到Excel中。');
   } catch (err) {
     console.error('复制失败:', err);
