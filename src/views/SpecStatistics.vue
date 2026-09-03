@@ -200,7 +200,7 @@ const LANYARD_COLORS = [
   { aliases: ['purple', '紫色'], cn: '紫色' },
   { aliases: ['red', '红色'], cn: '红色' },
   { aliases: ['green', '绿色'], cn: '绿色' },
-  { aliases: ['blue gray', 'blue grey', 'bluegray', 'blue-gray', '蓝灰', '蓝黑', '浅蓝'], cn: '浅蓝色' },
+  { aliases: ['blue gray', 'blue grey', 'bluegray', 'bluegrey', 'blue-gray', '蓝灰', '蓝黑', '浅蓝'], cn: '浅蓝色' },
   { aliases: ['royal blue', '蓝色'], cn: '蓝色' },
   { aliases: ['gold', '金色'], cn: '金色' },
   { aliases: ['yellow', '黄色'], cn: '黄色' },
@@ -235,7 +235,7 @@ const detectCardFormat = (attributes, productName, skuCode) => {
   }
   for (const { a } of LANYARD_DETECT_POOL) {
     const escaped = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`${escaped}[\\s\\-–—:：/,，]*\\d+\\s*(pcs|个)`, 'i');
+    const re = new RegExp(`${escaped}[\\s\\-–—－:：/,，;；.。]*\\d+\\s*(pcs|个)`, 'i');
     if (re.test(lower)) return true;
   }
   return false;
