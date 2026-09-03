@@ -391,7 +391,7 @@ const processData = (data) => {
     }
   });
   if (pvcTotal > 0) {
-    stats.push({ spec: 'PVC卡', total: pvcTotal });
+    stats.push({ spec: 'PVC白卡', total: pvcTotal });
   }
   const regularStats = Array.from(specMap.entries())
     .map(([spec, total]) => ({ spec, total }))
