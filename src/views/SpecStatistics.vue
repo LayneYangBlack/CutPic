@@ -225,6 +225,22 @@ const detectLanyardColor = (attributes) => {
   return null;
 };
 
+// 识别"颜色-pcs"证卡格式（如 "紫色-48pcs"、"黑色 48个"、"blue gray-48pcs"）：
+// 商品属性集中某颜色后紧跟数量（分隔符可为 -、空格、:、/ 或无分隔符），
+// 且整行（属性集/名称/SKU）不含 cm/mm 规格（避免把徽章误判成证卡）
+const detectCardFormat = (attributes, productName, skuCode) => {
+  const lower = (attributes || '').toLowerCase();
+  if (/(\d+(\.\d+)?)\s*(cm|mm)/i.test(`${lower} ${productName || ''} ${skuCode || ''}`)) {
+    return false;
+  }
+  for (const { a } of LANYARD_DETECT_POOL) {
+    const escaped = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`${escaped}[\\s\\-–—:：/,，]*\\d+\\s*(pcs|个)`, 'i');
+    if (re.test(lower)) return true;
+  }
+  return false;
+};
+
 // 提取PCS数量：优先级 商品属性集 > 商品名称 > SKU货号
 const extractPcs = (attributes, productName, skuCode) => {
   const pcsInAttrMatch = attributes.match(/(\d+)\s*(pcs|个)/i);
@@ -256,8 +272,10 @@ const processData = (data) => {
     const multiplierMatch = orderInfo.match(/[,，\s](\d+)\s*件/);
     const multiplier = multiplierMatch ? parseInt(multiplierMatch[1], 10) : 0;
 
-    // ===== 挂绳PVC卡品类：商品名称包含 Lanyard =====
-    if (/lanyard/i.test(productName)) {
+    // ===== 挂绳PVC卡品类 =====
+    // 判定条件：商品名称包含 Lanyard，或商品属性集为"颜色-pcs"证卡格式
+    // （如 "紫色-48pcs"，即使名称不含 Lanyard 也按证卡统计）
+    if (/lanyard/i.test(productName) || detectCardFormat(attributes, productName, skuCode)) {
       const colorCn = detectLanyardColor(attributes);
       const basePcs = extractPcs(attributes, productName, skuCode);
 
