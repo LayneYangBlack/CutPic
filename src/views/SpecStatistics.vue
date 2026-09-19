@@ -225,6 +225,24 @@ const detectLanyardColor = (attributes) => {
   return null;
 };
 
+// 属性集"颜色"后缀（-Card/卡片/套装等），用于识别按颜色区分的证卡套装SKU
+const COLOR_ATTR_SUFFIX_RE = /^[\s\-–—－:：/,，;；.。]*(card|cards|卡|卡片|套装|set)?$/;
+// 判断属性集是否本身就是颜色（如 "Purple"、"Blue Gray-Card"）：
+// 这类属性集没有规格含义，若当规格展示会出现 "Blue Gray-Card" 这种未转中文的脏数据；
+// 含数字的属性集一律排除，避免把 "25mm/0.98in"、"Laser film-58mm" 这类徽章规格误判成颜色
+const detectColorAttribute = (attributes) => {
+  const lower = (attributes || '').trim().toLowerCase();
+  if (!lower || /\d/.test(lower)) return null;
+  for (const { a, cn } of LANYARD_DETECT_POOL) {
+    if (!lower.startsWith(a)) continue;
+    const rest = lower.slice(a.length);
+    // 整串必须由"颜色别名 + 可选卡片后缀"构成，避免 "gold plated" 之类的误判
+    if (!COLOR_ATTR_SUFFIX_RE.test(rest)) continue;
+    return { cn, isCard: /card|卡/.test(rest) };
+  }
+  return null;
+};
+
 // 识别"颜色-pcs"证卡格式（如 "紫色-48pcs"、"黑色 48个"、"blue gray-48pcs"）：
 // 商品属性集中某颜色后紧跟数量（分隔符可为 -、空格、:、/ 或无分隔符），
 // 且整行（属性集/名称/SKU）不含 cm/mm 规格（避免把徽章误判成证卡）
@@ -273,10 +291,12 @@ const processData = (data) => {
     const multiplier = multiplierMatch ? parseInt(multiplierMatch[1], 10) : 0;
 
     // ===== 挂绳PVC卡品类 =====
-    // 判定条件：商品名称包含 Lanyard，或商品属性集为"颜色-pcs"证卡格式
-    // （如 "紫色-48pcs"，即使名称不含 Lanyard 也按证卡统计）
-    if (/lanyard/i.test(productName) || detectCardFormat(attributes, productName, skuCode)) {
-      const colorCn = detectLanyardColor(attributes);
+    // 判定条件：商品名称含吊绳/证卡关键词（中英文），或商品属性集为"颜色-pcs"证卡格式
+    // （如 "紫色-48pcs"），或属性集为"颜色-Card"（如 "Blue Gray-Card"，套装按颜色区分卡片）
+    const colorAttr = detectColorAttribute(attributes);
+    const isLanyardProduct = /lanyard|挂绳|吊绳|证卡|证件卡|工作牌/i.test(productName);
+    if (isLanyardProduct || detectCardFormat(attributes, productName, skuCode) || colorAttr?.isCard) {
+      const colorCn = colorAttr?.cn || detectLanyardColor(attributes);
       const basePcs = extractPcs(attributes, productName, skuCode);
 
       if (!colorCn || basePcs === 0 || multiplier === 0) {
