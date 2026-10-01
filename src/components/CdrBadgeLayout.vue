@@ -349,6 +349,9 @@ const marginTop = ref(10);
 const marginBottom = ref(10);
 const marginLeft = ref(10);
 const marginRight = ref(10);
+// 内容区边距固定 5mm：四圆点外移到10mm只挪标记位置，不能挤压内容区
+// （否则37mm由20个/页掉到15个、56mm由12掉到8、58mm由8掉到6）
+const CONTENT_MARGIN_MM = 5;
 const imageSrc = ref(null);
 const croppedImageSrc = ref(null);
 const a4Canvas = ref(null);
@@ -512,7 +515,7 @@ const generateLayout = () => {
     const innerDiaPx = mmToPx(innerDiameterMM);
     const outerDiaPx = mmToPx(outerDiameterMM);
 
-    // Draw corner markers (实心圆形标记，直径 5mm)
+    // Draw corner markers (实心圆形标记，直径 5mm) —— 位置由"上/下/左/右边缘"输入框控制（默认10mm）
     // 注释掉原来的 L 形直角标记代码（保留以备后用）
     // const markerLength = mmToPx(10);
     // const markerLineWidth = mmToPx(0.6);
@@ -520,6 +523,8 @@ const generateLayout = () => {
     const marginBottomPx = mmToPx(marginBottom.value);
     const marginLeftPx = mmToPx(marginLeft.value);
     const marginRightPx = mmToPx(marginRight.value);
+    // 内容区用独立的5mm边距，与四圆点位置解耦
+    const contentMarginPx = mmToPx(CONTENT_MARGIN_MM);
 
     // ctx.strokeStyle = "black";
     // ctx.lineWidth = markerLineWidth;
@@ -588,20 +593,18 @@ const generateLayout = () => {
     ctx.arc(canvas.width - marginRightPx, canvas.height - marginBottomPx, markerRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Calculate layout area (apply edge padding inside the margins, allow 5mm overflow)
+    // Calculate layout area (apply edge padding inside the content margins, allow 5mm overflow)
     const allowedOverflow = mmToPx(5);
     const edgePaddingHPx = mmToPx(edgePaddingH.value);
     const edgePaddingVPx = mmToPx(edgePaddingV.value);
     const effectiveWidth =
         canvas.width -
-        marginLeftPx -
-        marginRightPx -
+        contentMarginPx * 2 -
         2 * edgePaddingHPx +
         2 * allowedOverflow;
     const effectiveHeight =
         canvas.height -
-        marginTopPx -
-        marginBottomPx -
+        contentMarginPx * 2 -
         2 * edgePaddingVPx +
         2 * allowedOverflow;
     const spacingHPx = mmToPx(spacingH.value);
@@ -626,12 +629,12 @@ const generateLayout = () => {
 
     // 所有尺寸统一减去allowedOverflow，确保位置正确（修复32mm往右下偏移问题）
     const startX =
-        marginLeftPx +
+        contentMarginPx +
         edgePaddingHPx -
         allowedOverflow +
         (effectiveWidth - totalBadgesWidth) / 2;
     const startY =
-        marginTopPx +
+        contentMarginPx +
         edgePaddingVPx -
         allowedOverflow +
         (effectiveHeight - totalBadgesHeight) / 2;
@@ -672,7 +675,7 @@ const generateLayout = () => {
         ctx.fillText(
             `${innerDiameterMM}`,
             canvas.width / 2,
-            canvas.height - marginBottomPx + mmToPx(3),
+            canvas.height - contentMarginPx + mmToPx(3),
         );
 
         // CRITICAL: 绘制完成后释放锁
