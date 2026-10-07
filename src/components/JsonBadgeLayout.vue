@@ -161,16 +161,51 @@
         已生成 {{ generatedPages.length }} 页排版，点击打印将打印所有页面
       </div>
 
-      <div class="bg-gray-200 p-2 a4-preview-container overflow-auto shadow-inner rounded">
-        <canvas ref="a4Canvas"></canvas>
+      <div class="mb-3 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div>
+          <label for="bleed-toggle" class="block text-sm font-medium text-gray-700">出血</label>
+          <p class="mt-0.5 text-xs text-gray-500">
+            图案等比放大铺满包边（正面图案仍是成品线以内）；预览显示成品线（灰），参考线不打印
+          </p>
+        </div>
+        <input
+          id="bleed-toggle"
+          type="checkbox"
+          v-model="bleedEnabled"
+          @change="handleBleedToggle"
+          class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+        />
       </div>
+
+      <div class="bg-gray-200 p-2 a4-preview-container overflow-auto shadow-inner rounded">
+        <div class="relative w-full h-full">
+          <canvas ref="a4Canvas"></canvas>
+          <img
+            v-if="guidePages[0]"
+            :src="guidePages[0]"
+            class="absolute inset-0 w-full h-full pointer-events-none"
+            alt="出血参考线"
+          >
+        </div>
+      </div>
+      <p v-if="bleedEnabled && guidePages[0]" class="mt-2 text-xs text-gray-500">
+        参考线（仅预览）：灰虚线 = 成品线（{{ lastBadgeSize }}mm），线内为正面图案，线外为包边
+      </p>
 
       <!-- 多页预览缩略图 -->
       <div v-if="generatedPages.length > 1" class="mt-4">
         <h3 class="text-sm font-semibold mb-2">所有页面预览：</h3>
         <div class="grid grid-cols-3 gap-2">
           <div v-for="(page, index) in generatedPages" :key="index" class="border rounded p-1 bg-white">
-            <img :src="page" class="w-full h-auto" :alt="`第 ${index + 1} 页`">
+            <div class="relative">
+              <img :src="page" class="w-full h-auto" :alt="`第 ${index + 1} 页`">
+              <img
+                v-if="guidePages[index]"
+                :src="guidePages[index]"
+                class="absolute inset-0 w-full h-full pointer-events-none"
+                alt="出血参考线"
+              >
+            </div>
             <p class="text-xs text-center text-gray-600 mt-1">第 {{ index + 1 }} 页</p>
           </div>
         </div>
@@ -183,6 +218,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import JSZip from 'jszip';
+import { getDrawDiameterMM, drawBadgeGuide } from '../utils/badgeBleed.js';
 
 // --- 尺寸映射表 ---
 const sizeMap = {
@@ -197,6 +233,20 @@ let nextOrderId = 1;
 const a4Canvas = ref(null);
 const printableImage = ref(null);
 const generatedPages = ref([]); // 存储生成的多页canvas的dataURL数组
+// 出血开关：开启后图案等比放大铺满整个单元圆（出血区 + 包边区），并在预览叠加成品线/出血线。
+// 默认开启：不开出血时图案只画到成品线，压制套位偏差会让成品边缘露白
+const bleedEnabled = ref(true);
+const guidePages = ref([]); // 每页的参考线图层（仅屏幕预览，不参与打印）
+// 预览文案用：JSON 自动排版要求所有订单同尺寸（排版前会校验）
+const lastBadgeSize = computed(() => orders.value[0]?.size ?? 0);
+// 切换出血后立即按新设置重绘（订单未就绪时只清掉参考线，避免弹提示）
+const handleBleedToggle = () => {
+  if (allOrdersReady.value) {
+    generateLayout();
+  } else {
+    guidePages.value = [];
+  }
+};
 
 // --- 计算属性 ---
 // 已选择的订单数量
@@ -578,6 +628,14 @@ const generateLayout = () => {
 
   const sampleBadge = allBadges[0];
   const outerDiaPx = mmToPx(sampleBadge.outerDiameter);
+  // 出血开启时图案等比放大到外圈直径，出血区与包边区都印上图案
+  const drawDiaPx = mmToPx(
+    getDrawDiameterMM({
+      bleedEnabled: bleedEnabled.value,
+      size: sampleBadge.size,
+      outerDiameter: sampleBadge.outerDiameter,
+    }),
+  );
 
   const colsPerPage = Math.floor((effectiveCanvasWidth + currentGapHPx) / (outerDiaPx + currentGapHPx));
   const rowsPerPage = Math.floor((effectiveCanvasHeight + currentGapVPx) / (outerDiaPx + currentGapVPx));
@@ -594,6 +652,7 @@ const generateLayout = () => {
 
   // 清空之前的页面
   generatedPages.value = [];
+  guidePages.value = [];
 
   // 为每一页生成排版
   const generatePage = (pageIndex) => {
@@ -610,6 +669,11 @@ const generateLayout = () => {
       const canvas = document.createElement('canvas');
       canvas.width = mmToPx(A4_WIDTH_MM);
       canvas.height = mmToPx(A4_HEIGHT_MM);
+      // 参考线独立图层：只用于屏幕预览，打印用的 canvas 保持干净
+      const guideCanvas = document.createElement('canvas');
+      guideCanvas.width = canvas.width;
+      guideCanvas.height = canvas.height;
+      const guideCtx = guideCanvas.getContext('2d');
       const ctx = canvas.getContext('2d');
 
       ctx.fillStyle = 'white';
@@ -714,7 +778,15 @@ const generateLayout = () => {
 
           const innerDiaPx = mmToPx(badge.size);
 
-          // 外圆切线模式：绘制虚线外圆
+          // 绘制图片（出血开启时铺满整个单元圆）
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x + outerDiaPx / 2, y + outerDiaPx / 2, drawDiaPx / 2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(img, x + (outerDiaPx - drawDiaPx) / 2, y + (outerDiaPx - drawDiaPx) / 2, drawDiaPx, drawDiaPx);
+          ctx.restore();
+
+          // 外圆切线模式：虚线外圆画在图案之上，避免被铺满的图案盖住
           if (actualDrawMode === 'outline') {
             ctx.save();
             ctx.strokeStyle = 'black';
@@ -726,13 +798,14 @@ const generateLayout = () => {
             ctx.restore();
           }
 
-          // 绘制内圆图片
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(x + outerDiaPx / 2, y + outerDiaPx / 2, innerDiaPx / 2, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(img, x + (outerDiaPx - innerDiaPx) / 2, y + (outerDiaPx - innerDiaPx) / 2, innerDiaPx, innerDiaPx);
-          ctx.restore();
+          if (bleedEnabled.value) {
+            drawBadgeGuide(guideCtx, {
+              x, y,
+              cellDiaPx: outerDiaPx,
+              sizeDiaPx: innerDiaPx,
+              mmToPx,
+            });
+          }
         });
 
         // 在页面底部添加尺寸信息
@@ -748,6 +821,7 @@ const generateLayout = () => {
         // 转为dataURL并存储
         const pageDataUrl = canvas.toDataURL('image/png');
         generatedPages.value.push(pageDataUrl);
+        guidePages.value.push(bleedEnabled.value ? guideCanvas.toDataURL('image/png') : '');
 
         // 如果是第一页，显示在预览区
         if (pageIndex === 0) {
@@ -895,4 +969,3 @@ canvas {
   }
 }
 </style>
-

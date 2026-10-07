@@ -16,6 +16,10 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 const props = defineProps({
   src: { type: String, required: true },
   backgroundColor: { type: String, default: '#ffffff' },
+  // 出血/包边参考线：裁切圆 = 外圈（图案铺满包边），成品线按比例画在里面
+  bleedEnabled: { type: Boolean, default: false },
+  innerMm: { type: Number, default: 0 },
+  outerMm: { type: Number, default: 0 },
 });
 
 const canvas = ref(null);
@@ -25,6 +29,8 @@ const offset = ref({ x: 0, y: 0 });
 const isDragging = ref(false);
 const lastDragPos = ref({ x: 0, y: 0 });
 const isInitialized = ref(false);
+// 用户手动缩放/拖动后就保留他的取景，容器尺寸变化时不再自动重新适配
+const userAdjusted = ref(false);
 
 let ctx = null;
 
@@ -37,9 +43,10 @@ onMounted(() => {
       if (canvas.value.width !== width || canvas.value.height !== height) {
         canvas.value.width = width;
         canvas.value.height = height;
-        // If an image is loaded but not yet initialized, reset its transform.
-        // Otherwise, just redraw it at its current pan/zoom state.
-        if (image.value && !isInitialized.value) {
+        // 图片已加载但还没适配过、或用户还没手动调过取景时，按新尺寸重新适配；
+        // 否则保持用户当前的缩放/位移，只重画
+        // （图片可能在容器定尺前就加载完成，若不重新适配会被画得很小且偏在角落）
+        if (image.value && (!isInitialized.value || !userAdjusted.value)) {
             resetTransform();
         } else {
             redraw();
@@ -75,6 +82,21 @@ watch(() => props.src, (newSrc) => {
   }
 }, { immediate: true });
 
+// 尺寸/出血开关变化时重画参考线
+watch(
+  () => [props.bleedEnabled, props.innerMm, props.outerMm],
+  () => redraw(),
+);
+
+// 成品线半径（画布坐标）：裁切圆 = 外圈，成品线按成品与外圈的比例内缩
+const guideRadii = (canvasEl) => {
+  const outer = Number(props.outerMm);
+  const inner = Number(props.innerMm);
+  if (!props.bleedEnabled || !outer || !inner || outer <= inner) return null;
+  const cropRadius = Math.min(canvasEl.width, canvasEl.height) / 2;
+  return { innerR: cropRadius * (inner / outer) };
+};
+
 const resetTransform = () => {
     if (image.value && canvas.value && canvas.value.width > 0) {
         const canvasRadius = Math.min(canvas.value.width, canvas.value.height) / 2;
@@ -98,6 +120,7 @@ const resetTransform = () => {
                 y: (canvas.value.height - image.value.height) / 2,
             };
         }
+        userAdjusted.value = false;
     } else {
         // If canvas is not ready, do nothing. The ResizeObserver will call this function again.
         isInitialized.value = false;
@@ -138,6 +161,20 @@ const redraw = () => {
   ctx.fill();
   ctx.restore();
 
+  // 成品线参考线：裁切圆即外圈（图案铺满包边），成品线以内才是压制后正面能看到的部分
+  const guide = guideRadii(canvasEl);
+  if (guide) {
+    // 成品线以外到外圈都是包边（折到背面），压一层近不透明蒙层：
+    // 图案颜色和参考线相近时也能看清线，同时一眼看出哪部分不会留在正面（蒙层只在预览里，不影响裁切结果）
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.beginPath();
+    ctx.arc(canvasEl.width / 2, canvasEl.height / 2, radius, 0, Math.PI * 2);
+    ctx.arc(canvasEl.width / 2, canvasEl.height / 2, guide.innerR, 0, Math.PI * 2, true); // 反向，挖掉成品圆
+    ctx.fill();
+    ctx.restore();
+  }
+
   // Draw a white dashed border around the cropping circle for visibility
   ctx.save();
   ctx.strokeStyle = 'white';
@@ -147,6 +184,18 @@ const redraw = () => {
   ctx.arc(canvasEl.width / 2, canvasEl.height / 2, radius, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
+
+  if (guide) {
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    // 成品线：压制后正面可见的边界，越线的内容都会被包边吃掉
+    ctx.strokeStyle = '#6b7280';
+    ctx.beginPath();
+    ctx.arc(canvasEl.width / 2, canvasEl.height / 2, guide.innerR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 };
 
 const onMouseDown = (e) => {
@@ -160,6 +209,7 @@ const onMouseMove = (e) => {
     const dy = e.clientY - lastDragPos.value.y;
     offset.value.x += dx;
     offset.value.y += dy;
+    userAdjusted.value = true;
     lastDragPos.value = { x: e.clientX, y: e.clientY };
     redraw();
   }
@@ -190,6 +240,7 @@ const handleZoom = (newZoomValue, clientX, clientY) => {
     offset.value.y = zoomCenterY - imgPoint.y * newZoom;
 
     zoom.value = newZoom;
+    userAdjusted.value = true;
 
     redraw();
 }

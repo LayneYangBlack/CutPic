@@ -32,6 +32,22 @@
                         </select>
                     </div>
 
+                    <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div>
+                            <label for="bleed-toggle" class="block text-sm font-medium text-gray-700">出血</label>
+                            <p class="mt-0.5 text-xs text-gray-500">
+                                图案等比放大铺满包边（正面图案仍是成品线以内）；预览显示成品线（灰），参考线不打印
+                            </p>
+                        </div>
+                        <input
+                            id="bleed-toggle"
+                            type="checkbox"
+                            v-model="bleedEnabled"
+                            @change="handleBleedToggle"
+                            class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
@@ -209,8 +225,14 @@
                         ref="cropper"
                         :src="imageSrc"
                         :background-color="cropperBgColor"
+                        :bleed-enabled="bleedEnabled"
+                        :inner-mm="selectedSize"
+                        :outer-mm="sizeMap[selectedSize]"
                     />
                 </div>
+                <p v-if="bleedEnabled" class="mt-2 text-xs text-gray-500">
+                    参考线：灰虚线 = 成品 {{ selectedSize }}mm，线内是正面图案，线外到裁切圆都是包边（不会显示在正面）
+                </p>
             </div>
 
             <div
@@ -312,8 +334,19 @@
             <div
                 class="bg-gray-200 p-2 a4-preview-container overflow-auto shadow-inner rounded"
             >
-                <canvas ref="a4Canvas"></canvas>
+                <div class="relative w-full h-full">
+                    <canvas ref="a4Canvas"></canvas>
+                    <img
+                        v-if="guidePreviewUrl"
+                        :src="guidePreviewUrl"
+                        class="absolute inset-0 w-full h-full pointer-events-none"
+                        alt="出血参考线"
+                    />
+                </div>
             </div>
+            <p v-if="bleedEnabled" class="mt-2 text-xs text-gray-500">
+                参考线（仅预览）：灰虚线 = 成品 {{ selectedSize }}mm，线内为正面图案，线外为包边
+            </p>
         </div>
     </div>
     <img
@@ -327,6 +360,7 @@
 import { ref, onUnmounted, computed } from "vue";
 import CustomCropper from "./CustomCropper.vue";
 import { useCropHistory } from "../composables/useCropHistory.js";
+import { getDrawDiameterMM, drawBadgeGuide } from "../utils/badgeBleed.js";
 
 // --- State ---
 const sizeMap = {
@@ -352,6 +386,18 @@ const marginRight = ref(10);
 // 内容区边距固定 5mm：四圆点外移到10mm只挪标记位置，不能挤压内容区
 // （否则37mm由20个/页掉到15个、56mm由12掉到8、58mm由8掉到6）
 const CONTENT_MARGIN_MM = 5;
+// 出血开关：开启后图案等比放大铺满整个单元圆（出血区 + 包边区），并在预览叠加成品线/出血线。
+// 默认开启：不开出血时图案只画到成品线，压制套位偏差会让成品边缘露白
+const bleedEnabled = ref(true);
+const guidePreviewUrl = ref(""); // 参考线图层（仅屏幕预览，不参与打印）
+// 切换出血后立即按新设置重绘（没有裁切图时只清掉参考线，避免弹提示）
+const handleBleedToggle = () => {
+    if (croppedImageSrc.value) {
+        generateLayout();
+    } else {
+        guidePreviewUrl.value = "";
+    }
+};
 const imageSrc = ref(null);
 const croppedImageSrc = ref(null);
 const a4Canvas = ref(null);
@@ -514,6 +560,19 @@ const generateLayout = () => {
     const outerDiameterMM = sizeMap[innerDiameterMM];
     const innerDiaPx = mmToPx(innerDiameterMM);
     const outerDiaPx = mmToPx(outerDiameterMM);
+    // 出血开启时图案等比放大到外圈直径，出血区与包边区都印上图案
+    const drawDiaPx = mmToPx(
+        getDrawDiameterMM({
+            bleedEnabled: bleedEnabled.value,
+            size: innerDiameterMM,
+            outerDiameter: outerDiameterMM,
+        }),
+    );
+    // 参考线独立图层：只用于屏幕预览，打印用的 canvas 保持干净
+    const guideCanvas = document.createElement("canvas");
+    guideCanvas.width = canvas.width;
+    guideCanvas.height = canvas.height;
+    const guideCtx = guideCanvas.getContext("2d");
 
     // Draw corner markers (实心圆形标记，直径 5mm) —— 位置由"上/下/左/右边缘"输入框控制（默认10mm）
     // 注释掉原来的 L 形直角标记代码（保留以备后用）
@@ -652,21 +711,33 @@ const generateLayout = () => {
                 ctx.arc(
                     x + outerDiaPx / 2,
                     y + outerDiaPx / 2,
-                    innerDiaPx / 2,
+                    drawDiaPx / 2,
                     0,
                     Math.PI * 2,
                 );
                 ctx.clip();
                 ctx.drawImage(
                     img,
-                    x + (outerDiaPx - innerDiaPx) / 2,
-                    y + (outerDiaPx - innerDiaPx) / 2,
-                    innerDiaPx,
-                    innerDiaPx,
+                    x + (outerDiaPx - drawDiaPx) / 2,
+                    y + (outerDiaPx - drawDiaPx) / 2,
+                    drawDiaPx,
+                    drawDiaPx,
                 );
                 ctx.restore();
+
+                if (bleedEnabled.value) {
+                    drawBadgeGuide(guideCtx, {
+                        x,
+                        y,
+                        cellDiaPx: outerDiaPx,
+                        sizeDiaPx: innerDiaPx,
+                        mmToPx,
+                    });
+                }
             }
         }
+
+        guidePreviewUrl.value = bleedEnabled.value ? guideCanvas.toDataURL("image/png") : "";
 
         // 绘制尺寸标注文字（放在页面底部中央，确保打印安全区域内）
         ctx.fillStyle = "black";

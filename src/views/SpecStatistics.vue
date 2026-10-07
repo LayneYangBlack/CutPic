@@ -225,8 +225,9 @@ const detectLanyardColor = (attributes) => {
   return null;
 };
 
-// 属性集"颜色"后缀（-Card/卡片/套装等），用于识别按颜色区分的证卡套装SKU
-const COLOR_ATTR_SUFFIX_RE = /^[\s\-–—－:：/,，;；.。]*(card|cards|卡|卡片|套装|set)?$/;
+// 属性集"颜色"后缀（-Card/-卡片/Lanyard-IDCard 等），用于识别按颜色区分的证卡套装SKU
+// 平台文案会变（同一颜色写成 "White-Card"/"Orange Lanyard-IDCard"），这里把常见后缀都收进来
+const COLOR_ATTR_SUFFIX_RE = /^[\s\-–—－:：/,，;；.。]*(lanyard-idcard|idcard|id card|id卡|卡片|cards|card|卡|套装|set|lanyard)?$/;
 // 判断属性集是否本身就是颜色（如 "Purple"、"Blue Gray-Card"）：
 // 这类属性集没有规格含义，若当规格展示会出现 "Blue Gray-Card" 这种未转中文的脏数据；
 // 含数字的属性集一律排除，避免把 "25mm/0.98in"、"Laser film-58mm" 这类徽章规格误判成颜色
@@ -243,7 +244,7 @@ const detectColorAttribute = (attributes) => {
   return null;
 };
 
-// 识别"颜色-pcs"证卡格式（如 "紫色-48pcs"、"黑色 48个"、"blue gray-48pcs"）：
+// 识别"颜色-数量"证卡格式（如 "紫色-48pcs"、"黑色 48个"、"blue gray-48pcs"、"橘色-48套"）：
 // 商品属性集中某颜色后紧跟数量（分隔符可为 -、空格、:、/ 或无分隔符），
 // 且整行（属性集/名称/SKU）不含 cm/mm 规格（避免把徽章误判成证卡）
 const detectCardFormat = (attributes, productName, skuCode) => {
@@ -253,19 +254,20 @@ const detectCardFormat = (attributes, productName, skuCode) => {
   }
   for (const { a } of LANYARD_DETECT_POOL) {
     const escaped = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`${escaped}[\\s\\-–—－:：/,，;；.。]*\\d+\\s*(pcs|个)`, 'i');
+    const re = new RegExp(`${escaped}[\\s\\-–—－:：/,，;；.。]*\\d+\\s*(pcs|个|套)`, 'i');
     if (re.test(lower)) return true;
   }
   return false;
 };
 
-// 提取PCS数量：优先级 商品属性集 > 商品名称 > SKU货号
+// 提取件数：优先级 商品属性集 > 商品名称 > SKU货号
+// 平台文案会用不同单位（"20pcs"、"35个装"、"32套装"），「套」按套装件数计入
 const extractPcs = (attributes, productName, skuCode) => {
-  const pcsInAttrMatch = attributes.match(/(\d+)\s*(pcs|个)/i);
+  const pcsInAttrMatch = attributes.match(/(\d+)\s*(pcs|个|套)/i);
   if (pcsInAttrMatch) return parseInt(pcsInAttrMatch[1], 10);
-  const pcsInNameMatch = productName.match(/(\d+)\s*(pcs|个)/i);
+  const pcsInNameMatch = productName.match(/(\d+)\s*(pcs|个|套)/i);
   if (pcsInNameMatch) return parseInt(pcsInNameMatch[1], 10);
-  const pcsInSkuMatch = skuCode.match(/(\d+)\s*(pcs|个)/i);
+  const pcsInSkuMatch = skuCode.match(/(\d+)\s*(pcs|个|套)/i);
   if (pcsInSkuMatch) return parseInt(pcsInSkuMatch[1], 10);
   return 0;
 };
@@ -322,7 +324,7 @@ const processData = (data) => {
     // 数据源优先级：商品属性集 > 商品名称 > SKU货号（兜底）
 
     // 尝试从商品属性集匹配 "规格-数量" 组合格式，如 "44mm-30pcs", "44mm / 30pcs"
-    const multiSpecMatch = attributes.match(/((\d+(\.\d+)?)(cm|mm))\D+(\d+)\s*(pcs|个)/i);
+    const multiSpecMatch = attributes.match(/((\d+(\.\d+)?)(cm|mm))\D+(\d+)\s*(pcs|个|套)/i);
 
     if (multiSpecMatch) {
       // Case 1: 商品属性集包含完整的规格和数量信息
@@ -370,7 +372,7 @@ const processData = (data) => {
       basePcs = extractPcs(attributes, productName, skuCode);
 
       // 3. 如果规格仍未找到，且商品属性集不是纯PCS值，则使用商品属性集作为规格
-      if (spec === 'N/A' && attributes && !/^\s*\d+\s*(pcs|个)\s*$/i.test(attributes)) {
+      if (spec === 'N/A' && attributes && !/^\s*\d+\s*(pcs|个|套)\s*$/i.test(attributes)) {
         spec = attributes;
       }
     }
