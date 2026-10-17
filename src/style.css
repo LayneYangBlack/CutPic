@@ -18,7 +18,55 @@
 
 body {
   margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
   /* 布局和背景由 App.vue 中的 Tailwind 类控制 */
+}
+
+/* Mobile layout defaults shared by all badge modes. */
+.badge-layout {
+  min-width: 0;
+}
+
+.badge-layout > * {
+  min-width: 0;
+}
+
+/* The zoom bar sits below the canvas, so reserve its height instead of
+   shrinking the interactive preview. */
+.badge-layout .cropper-container {
+  height: 456px !important;
+}
+
+@media (max-width: 639px) {
+  .badge-layout {
+    padding: 0.75rem;
+    gap: 1rem;
+  }
+
+  .badge-layout .cropper-container {
+    height: calc(min(100vw, 400px) + 54px) !important;
+    min-height: 0;
+  }
+
+  .badge-layout .a4-preview-container {
+    max-width: 100%;
+  }
+
+  .badge-layout .flex.justify-between.items-center.mb-4 {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .badge-layout .flex.justify-between.items-center.mb-4 > div {
+    max-width: 100%;
+  }
+
+  .badge-layout input[type='file'] {
+    max-width: 100%;
+    font-size: 0.75rem;
+  }
 }
 
 /* 保留一些基础的元素样式 */

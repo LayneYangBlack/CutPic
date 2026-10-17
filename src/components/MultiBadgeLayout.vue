@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 printable-hidden">
+  <div class="badge-layout p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 printable-hidden">
     <!-- Left Panel: Settings -->
     <div class="space-y-6">
       <h1 class="text-2xl font-bold">徽章自动排版工具 (多图案版)</h1>

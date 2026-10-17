@@ -1,11 +1,22 @@
 <template>
   <div class="custom-cropper-wrapper">
-    <canvas ref="canvas" @mousedown="onMouseDown" @mousemove="onMouseMove" @mouseup="onMouseUp" @mouseleave="onMouseUp" @wheel.prevent="onWheel"></canvas>
+    <div class="preview-stage">
+      <canvas
+        ref="canvas"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerUp"
+        @pointerleave="onPointerLeave"
+        @wheel.prevent="onWheel"
+        aria-label="图片裁剪预览"
+      ></canvas>
+    </div>
     <div class="controls">
-      <label for="zoom">缩放:</label>
-      <button @click="zoomOut" class="zoom-btn">-</button>
-      <input type="range" id="zoom" min="0.1" max="3" step="0.05" :value="zoom" @input="handleZoomSlider($event.target.value)">
-      <button @click="zoomIn" class="zoom-btn">+</button>
+      <label for="zoom">缩放</label>
+      <button type="button" @click="zoomOut" class="zoom-btn" aria-label="缩小">-</button>
+      <input type="range" id="zoom" min="0.1" max="3" step="0.05" :value="zoom" @input="handleZoomSlider($event.target.value)" aria-label="图片缩放">
+      <button type="button" @click="zoomIn" class="zoom-btn" aria-label="放大">+</button>
     </div>
   </div>
 </template>
@@ -33,6 +44,8 @@ const lastDragPos = ref({ x: 0, y: 0 });
 const isInitialized = ref(false);
 // 用户手动缩放/拖动后就保留他的取景，容器尺寸变化时不再自动重新适配
 const userAdjusted = ref(false);
+const activePointers = new Map();
+let pinchStart = null;
 
 let ctx = null;
 
@@ -200,12 +213,81 @@ const redraw = () => {
   }
 };
 
-const onMouseDown = (e) => {
-  isDragging.value = true;
-  lastDragPos.value = { x: e.clientX, y: e.clientY };
+const getPointerDistance = (first, second) =>
+  Math.hypot(second.x - first.x, second.y - first.y);
+
+const getPointerMidpoint = (first, second) => ({
+  x: (first.x + second.x) / 2,
+  y: (first.y + second.y) / 2,
+});
+
+const startPinch = () => {
+  const points = [...activePointers.values()];
+  if (points.length < 2 || !canvas.value || !image.value) return;
+
+  const [first, second] = points;
+  const midpoint = getPointerMidpoint(first, second);
+  const rect = canvas.value.getBoundingClientRect();
+  const midpointOnCanvas = {
+    x: midpoint.x - rect.left,
+    y: midpoint.y - rect.top,
+  };
+
+  pinchStart = {
+    distance: Math.max(getPointerDistance(first, second), 1),
+    midpointOnCanvas,
+    zoom: zoom.value,
+    imagePoint: {
+      x: (midpointOnCanvas.x - offset.value.x) / zoom.value,
+      y: (midpointOnCanvas.y - offset.value.y) / zoom.value,
+    },
+  };
+  isDragging.value = false;
 };
 
-const onMouseMove = (e) => {
+const onPointerDown = (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  canvas.value?.setPointerCapture?.(e.pointerId);
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size >= 2) {
+    startPinch();
+  } else {
+    isDragging.value = true;
+    lastDragPos.value = { x: e.clientX, y: e.clientY };
+  }
+};
+
+const onPointerMove = (e) => {
+  if (!activePointers.has(e.pointerId)) return;
+  e.preventDefault();
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size >= 2) {
+    if (!pinchStart) startPinch();
+    const points = [...activePointers.values()];
+    const [first, second] = points;
+    const distance = Math.max(getPointerDistance(first, second), 1);
+    const midpoint = getPointerMidpoint(first, second);
+    const rect = canvas.value.getBoundingClientRect();
+    const midpointOnCanvas = {
+      x: midpoint.x - rect.left,
+      y: midpoint.y - rect.top,
+    };
+    const newZoom = Math.max(
+      0.1,
+      Math.min(pinchStart.zoom * (distance / pinchStart.distance), 3),
+    );
+
+    offset.value.x = midpointOnCanvas.x - pinchStart.imagePoint.x * newZoom;
+    offset.value.y = midpointOnCanvas.y - pinchStart.imagePoint.y * newZoom;
+    zoom.value = newZoom;
+    userAdjusted.value = true;
+    redraw();
+    return;
+  }
+
   if (isDragging.value) {
     const dx = e.clientX - lastDragPos.value.x;
     const dy = e.clientY - lastDragPos.value.y;
@@ -217,8 +299,30 @@ const onMouseMove = (e) => {
   }
 };
 
-const onMouseUp = () => {
-  isDragging.value = false;
+const onPointerUp = (e) => {
+  activePointers.delete(e.pointerId);
+  if (canvas.value?.hasPointerCapture?.(e.pointerId)) {
+    canvas.value.releasePointerCapture(e.pointerId);
+  }
+
+  if (activePointers.size >= 2) {
+    startPinch();
+  } else if (activePointers.size === 1) {
+    const remaining = [...activePointers.values()][0];
+    pinchStart = null;
+    isDragging.value = true;
+    lastDragPos.value = { x: remaining.x, y: remaining.y };
+  } else {
+    pinchStart = null;
+    isDragging.value = false;
+  }
+};
+
+const onPointerLeave = (e) => {
+  // Pointer capture keeps an active touch/drag alive outside the canvas.
+  if (e.pointerType === 'mouse' && !activePointers.has(e.pointerId)) {
+    isDragging.value = false;
+  }
 };
 
 const handleZoom = (newZoomValue, clientX, clientY) => {
@@ -342,46 +446,97 @@ defineExpose({ crop });
   position: relative;
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.preview-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
 }
 canvas {
   width: 100%;
   height: 100%;
+  display: block;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 canvas:active {
     cursor: grabbing;
 }
 .controls {
-  position: absolute;
-  bottom: 10px;
-  width: 300px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.7);
-  padding: 5px 10px;
+  position: relative;
+  flex: 0 0 auto;
+  width: min(360px, calc(100% - 16px));
+  margin: 8px auto 0;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 6px 10px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   gap: 8px;
+  box-sizing: border-box;
 }
 label {
     flex-shrink: 0;
 }
+.controls input[type='range'] {
+    min-width: 0;
+    flex: 1;
+    accent-color: #2563eb;
+}
 .zoom-btn {
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
     border: 1px solid #ccc;
     border-radius: 50%;
     background-color: white;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 22px;
     text-align: center;
 }
+.zoom-btn:focus-visible,
+.controls input[type='range']:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.35);
+    outline-offset: 2px;
+}
 .zoom-btn:hover {
     background-color: #f0f0f0;
+}
+
+@media (max-width: 639px) {
+  .controls {
+    width: min(270px, calc(100% - 16px));
+    margin-top: 6px;
+    padding: 4px 6px;
+    gap: 5px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.88);
+  }
+
+  .controls label {
+    font-size: 12px;
+  }
+
+  .zoom-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 17px;
+    line-height: 18px;
+  }
+
+  .controls input[type='range'] {
+    height: 24px;
+  }
 }
 </style>

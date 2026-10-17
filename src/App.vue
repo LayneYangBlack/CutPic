@@ -9,9 +9,9 @@
 <template>
   <div class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
     <header class="p-4 bg-white dark:bg-gray-800 shadow-md sticky top-0 z-10">
-      <nav class="max-w-[1200px] mx-auto flex items-center justify-between">
+      <nav class="max-w-[1200px] mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <router-link to="/" class="text-xl font-bold">像素工坊</router-link>
-        <div class="flex gap-4">
+        <div class="flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm sm:justify-end sm:gap-4 sm:text-base">
           <router-link to="/watermark-remover" class="text-blue-500 hover:underline">裁剪+去水印</router-link>
           <router-link to="/spec-generator" class="text-blue-500 hover:underline">规格图生成</router-link>
           <router-link to="/spec-statistics" class="text-blue-500 hover:underline">规格统计</router-link>
@@ -19,7 +19,7 @@
       </nav>
     </header>
 
-    <main class="p-4 md:p-8">
+    <main class="p-2 sm:p-4 md:p-8">
       <div class="max-w-[1200px] mx-auto">
         <!-- 路由对应的组件将在这里渲染 -->
         <router-view></router-view>
