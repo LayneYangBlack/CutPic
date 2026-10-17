@@ -19,7 +19,7 @@
                         >
                         <select
                             id="size-select"
-                            v-model="selectedSize"
+                            v-model.number="selectedSize"
                             class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
                         >
                             <option
@@ -193,6 +193,7 @@
                         :bleed-enabled="bleedEnabled"
                         :inner-mm="selectedSize"
                         :outer-mm="sizeMap[selectedSize]"
+                        :max-outer-mm="maxOuterMm"
                     />
                 </div>
                 <p v-if="bleedEnabled" class="mt-2 text-xs text-gray-500">
@@ -322,6 +323,7 @@ const sizeMap = {
     65: 76,
     75: 86,
 };
+const maxOuterMm = Math.max(...Object.values(sizeMap));
 const selectedSize = ref(58);
 const printQuantity = ref(null);
 const gapH = ref(2);

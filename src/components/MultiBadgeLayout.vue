@@ -49,7 +49,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700">选择尺寸</label>
-                <select v-model="design.size" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
+                <select v-model.number="design.size" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
                   <option v-for="(outer, inner) in sizeMap" :key="inner" :value="inner">{{ inner }}mm</option>
                 </select>
               </div>
@@ -86,6 +86,7 @@
             :bleed-enabled="bleedEnabled"
             :inner-mm="activeDesign.size"
             :outer-mm="sizeMap[activeDesign.size]"
+            :max-outer-mm="maxOuterMm"
           />
         </div>
         <p v-if="bleedEnabled" class="mt-2 text-xs text-gray-500">
@@ -256,6 +257,7 @@ const drawMode = ref('auto'); // 固定为 'auto'（自动判断CDR或外圆切�
 const sizeMap = {
   25: 35, 32: 44, 37: 49, 44: 54, 50: 61, 56: 66, 58: 70, 65: 76, 75: 86,
 };
+const maxOuterMm = Math.max(...Object.values(sizeMap));
 // 移除手动间隙设置，使用默认值
 // const gapH = ref(2);
 // const gapV = ref(2);

@@ -20,6 +20,8 @@ const props = defineProps({
   bleedEnabled: { type: Boolean, default: false },
   innerMm: { type: Number, default: 0 },
   outerMm: { type: Number, default: 0 },
+  // 按最大规格输出，避免裁切后改大尺寸时再次把低分辨率图放大
+  maxOuterMm: { type: Number, default: 0 },
 });
 
 const canvas = ref(null);
@@ -262,16 +264,33 @@ const onWheel = (e) => {
     handleZoom(zoom.value * zoomFactor);
 }
 
+// 裁剪结果会直接用于 300 DPI 的 A4 排版，输出像素必须按成品外圈尺寸计算；
+// 若沿用裁切框的 CSS 像素（约 400px），大尺寸徽章会在排版时被二次放大而发虚。
+const CROP_OUTPUT_DPI = 300;
+const MM_PER_INCH = 25.4;
+// 留出余量，避免极端参数生成过大画布拖慢渲染；当前最大 86mm 外圈远低于该上限
+const MAX_CROP_OUTPUT_PX = 2400;
+
 const crop = () => {
     if (!image.value || !canvas.value) return null;
 
     const canvasEl = canvas.value;
-    const radius = Math.min(canvasEl.width, canvasEl.height) / 2;
-    const cropSize = radius * 2;
+    const displayRadius = Math.min(canvasEl.width, canvasEl.height) / 2;
+    const displayCropSize = displayRadius * 2;
+    const outerMm = Number(props.outerMm);
+    const maxOuterMm = Number(props.maxOuterMm);
+    const outputMm = Math.max(outerMm, maxOuterMm);
+    const targetSize = outputMm > 0
+        ? Math.min(
+            MAX_CROP_OUTPUT_PX,
+            Math.max(1, Math.round((outputMm / MM_PER_INCH) * CROP_OUTPUT_DPI)),
+        )
+        : Math.max(1, Math.round(displayCropSize));
+    const targetRadius = targetSize / 2;
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = cropSize;
-    tempCanvas.height = cropSize;
+    tempCanvas.width = targetSize;
+    tempCanvas.height = targetSize;
     const tempCtx = tempCanvas.getContext('2d', {
         alpha: true,
         colorSpace: 'srgb',
@@ -284,18 +303,19 @@ const crop = () => {
 
     // Create a circular clip on the temp canvas
     tempCtx.beginPath();
-    tempCtx.arc(radius, radius, radius, 0, Math.PI * 2);
+    tempCtx.arc(targetRadius, targetRadius, targetRadius, 0, Math.PI * 2);
     tempCtx.closePath();
     tempCtx.clip();
 
     // Fill the background color
     tempCtx.fillStyle = props.backgroundColor;
-    tempCtx.fillRect(0, 0, cropSize, cropSize);
+    tempCtx.fillRect(0, 0, targetSize, targetSize);
 
-    // Calculate the source rectangle from the original image
+    // 取景参数仍按屏幕坐标计算，只把目标画布放大；
+    // 这样用户看到的裁切范围不变，但输出保留原图细节。
     const imgXatCenter = (canvasEl.width / 2 - offset.value.x) / zoom.value;
     const imgYatCenter = (canvasEl.height / 2 - offset.value.y) / zoom.value;
-    const imgRadius = radius / zoom.value;
+    const imgRadius = displayRadius / zoom.value;
 
     tempCtx.drawImage(
         image.value,
@@ -305,8 +325,8 @@ const crop = () => {
         imgRadius * 2, // source height
         0, // destination x
         0, // destination y
-        cropSize, // destination width
-        cropSize // destination height
+        targetSize, // destination width
+        targetSize // destination height
     );
 
     return tempCanvas.toDataURL('image/png');

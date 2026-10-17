@@ -228,6 +228,7 @@
                         :bleed-enabled="bleedEnabled"
                         :inner-mm="selectedSize"
                         :outer-mm="sizeMap[selectedSize]"
+                        :max-outer-mm="maxOuterMm"
                     />
                 </div>
                 <p v-if="bleedEnabled" class="mt-2 text-xs text-gray-500">
@@ -374,6 +375,7 @@ const sizeMap = {
     65: 76,
     75: 86,
 };
+const maxOuterMm = Math.max(...Object.values(sizeMap));
 const selectedSize = ref(58);
 const spacingH = ref(2.0);
 const spacingV = ref(2.0);
