@@ -531,13 +531,11 @@ const generateLayout = () => {
     const allowedOverflowPx = mmToPx(cdrAllowedOverflow);
     const edgePaddingHPx = mmToPx(cdrEdgePaddingH);
     const edgePaddingVPx = mmToPx(cdrEdgePaddingV);
-    const marginLeftPx = mmToPx(cdrMarginLeft);
-    const marginRightPx = mmToPx(cdrMarginRight);
-    const marginTopPx = mmToPx(cdrMarginTop);
-    const marginBottomPx = mmToPx(cdrMarginBottom);
+    // 内容边距与定位标记分开：标记距纸边 10mm，内容区保持 5mm。
+    const contentMarginPx = mmToPx(5);
 
-    const effectiveCanvasWidth = mmToPx(A4_WIDTH_MM) - marginLeftPx - marginRightPx - 2 * edgePaddingHPx + 2 * allowedOverflowPx;
-    const effectiveCanvasHeight = mmToPx(A4_HEIGHT_MM) - marginTopPx - marginBottomPx - 2 * edgePaddingVPx + 2 * allowedOverflowPx;
+    const effectiveCanvasWidth = mmToPx(A4_WIDTH_MM) - 2 * contentMarginPx - 2 * edgePaddingHPx + 2 * allowedOverflowPx;
+    const effectiveCanvasHeight = mmToPx(A4_HEIGHT_MM) - 2 * contentMarginPx - 2 * edgePaddingVPx + 2 * allowedOverflowPx;
     const currentGapHPx = mmToPx(cdrSpacingH);
     const currentGapVPx = mmToPx(cdrSpacingV);
 
@@ -644,8 +642,8 @@ const generateLayout = () => {
                 const effectiveWidthForCentering = effectiveCanvasWidth;
                 const effectiveHeightForCentering = effectiveCanvasHeight;
 
-                offsetX = marginLeftPx + edgePaddingHPx - allowedOverflowPx + (effectiveWidthForCentering - totalBadgesWidth) / 2;
-                offsetY = marginTopPx + edgePaddingVPx - allowedOverflowPx + (effectiveHeightForCentering - totalBadgesHeight) / 2;
+                offsetX = contentMarginPx + edgePaddingHPx - allowedOverflowPx + (effectiveWidthForCentering - totalBadgesWidth) / 2;
+                offsetY = contentMarginPx + edgePaddingVPx - allowedOverflowPx + (effectiveHeightForCentering - totalBadgesHeight) / 2;
             } else {
                 // 外圆切线模式：与SingleBadgeLayout.vue的自动模式完全一致
                 // 使用相同的最小间隙和居中对齐逻辑
