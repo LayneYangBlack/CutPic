@@ -4,6 +4,18 @@
       <h1 class="text-2xl font-bold mb-4">规格数量统计</h1>
       
       <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="mb-4 space-y-3">
+          <label class="block text-sm font-medium">统计类型
+            <select v-model="sourceType" class="block w-full border rounded p-2">
+              <option value="original">备货单统计（原有类型）</option>
+              <option value="pdd">拼多多订单统计</option>
+            </select>
+          </label>
+          <div v-if="sourceType === 'pdd'" class="space-y-2">
+            <p class="text-xs text-gray-500">仅统计已发货订单。实际数量 = 购买件数 × 每套个数（含明确标注的赠送数量）。</p>
+            <p v-if="rawData.length" class="text-sm text-gray-600">{{ filterSummary }}</p>
+          </div>
+        </div>
         <div class="mb-4">
           <label for="file-upload" class="block text-sm font-medium text-gray-700 mb-2">
             上传 Excel 文件
@@ -17,7 +29,7 @@
               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
-          <p class="mt-1 text-xs text-gray-500">请确保 Excel 包含 '商品名称', '商品属性集', 和 '备货单' 列。</p>
+          <p class="mt-1 text-xs text-gray-500">{{ sourceType === 'pdd' ? '支持拼多多订单 CSV / Excel，需包含商品规格、商品数量(件)、订单状态、发货时间、订单成交时间。' : '请确保 Excel 包含商品名称、商品属性集和备货单列。' }}</p>
         </div>
 
         <div v-if="isLoading" class="text-center">
@@ -25,6 +37,11 @@
         </div>
 
         <div v-if="!isLoading && statistics.length > 0" class="mt-6">
+          <div v-if="sourceType === 'pdd'" class="mb-3 text-sm text-gray-600 space-y-1">
+            <p>表格成交时间范围：{{ tableTimeRange }}</p>
+            <p>已发货订单成交时间范围：{{ orderTimeRange }}</p>
+            <p>已发货订单发货时间范围：{{ shippingTimeRange }}</p>
+          </div>
           <div class="flex justify-between items-center mb-3">
             <h2 class="text-xl font-semibold">统计结果</h2>
             <button
@@ -111,9 +128,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import * as XLSX from 'xlsx';
 
+const sourceType = ref('original');
+const tableTimeRange = ref('无有效时间');
+const orderTimeRange = ref('无有效时间');
+const shippingTimeRange = ref('无有效时间');
+const rawData = ref([]);
+const filterSummary = ref('');
+watch([sourceType], () => {
+  if (rawData.value.length) processData(rawData.value);
+});
 const isLoading = ref(false);
 const statistics = ref([]);
 const totalSum = ref(0);
@@ -137,11 +163,16 @@ const handleFileUpload = (event) => {
   reader.onload = (e) => {
     try {
       const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
+      const workbook = file.name.toLowerCase().endsWith('.csv')
+        ? XLSX.read(new TextDecoder('utf-8').decode(data).includes('商品')
+          ? new TextDecoder('utf-8').decode(data)
+          : new TextDecoder('gb18030').decode(data), { type: 'string', raw: true })
+        : XLSX.read(data, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       
+      rawData.value = jsonData;
       processData(jsonData);
 
     } catch (err) {
@@ -272,7 +303,54 @@ const extractPcs = (attributes, productName, skuCode) => {
   return 0;
 };
 
+const processPddData = (data) => {
+  statistics.value = []; totalRows.value = []; totalSum.value = 0; skippedRows.value = []; error.value = null;
+  const required = ['商品规格', '商品数量(件)', '订单状态', '发货时间', '订单成交时间'];
+  if (required.some(key => !Object.hasOwn(data[0] || {}, key))) {
+    error.value = '拼多多表格缺少必要列：' + required.join('、'); return;
+  }
+  const counts = new Map(); let unshipped = 0;
+  const dateText = value => {
+    const pad = number => String(number).padStart(2, '0');
+    if (typeof value === 'number') {
+      const d = XLSX.SSF.parse_date_code(value);
+      return d ? `${d.y}-${pad(d.m)}-${pad(d.d)} ${pad(d.H)}:${pad(d.M)}:${pad(d.S)}` : '';
+    }
+    const match = String(value || '').trim().replaceAll('/', '-').match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (!match) return '';
+    const [, year, month, day, hour = '0', minute = '0', second = '0'] = match;
+    return `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(second)}`;
+  };
+  const range = values => {
+    const dates = values.filter(Boolean).sort();
+    return dates.length ? `${dates[0]} 至 ${dates[dates.length - 1]}` : '无有效时间';
+  };
+  tableTimeRange.value = range(data.map(row => dateText(row['订单成交时间'])));
+  const orderDates = []; const shippingDates = [];
+  for (const row of data) {
+    if (!dateText(row['发货时间']) || /待发货|未发货|已取消|已关闭/.test(String(row['订单状态']))) { unshipped++; continue; }
+    orderDates.push(dateText(row['订单成交时间']));
+    shippingDates.push(dateText(row['发货时间']));
+    const spec = String(row['商品规格'] || '').trim();
+    const size = spec.match(/(\d+(?:\.\d+)?)\s*mm/i);
+    const pack = spec.match(/共\s*(\d+)\s*个/) || spec.match(/(\d+)\s*个/);
+    const quantity = Number(String(row['商品数量(件)']).trim());
+    if (!size || !pack || !Number.isInteger(quantity) || quantity <= 0 || Number(pack[1]) <= 0) {
+      skippedRows.value.push({ '商品名称': row['商品'], '商品属性集': spec, '备货单': row['商品数量(件)'], reason: '无法识别规格、每套数量或购买件数' }); continue;
+    }
+    const key = `${Number(size[1])}mm`;
+    counts.set(key, (counts.get(key) || 0) + quantity * Number(pack[1]));
+  }
+  orderTimeRange.value = range(orderDates);
+  shippingTimeRange.value = range(shippingDates);
+  statistics.value = [...counts].sort((a,b) => parseFloat(a[0])-parseFloat(b[0])).map(([spec,total]) => ({spec,total}));
+  totalSum.value = statistics.value.reduce((sum,row) => sum + row.total, 0);
+  filterSummary.value = `排除未发货/关闭订单 ${unshipped} 行，无法识别 ${skippedRows.value.length} 行。`;
+};
+
 const processData = (data) => {
+  if (sourceType.value === 'pdd') return processPddData(data);
+  error.value = null;
   const specMap = new Map();
   const lanyardMap = new Map(); // 吊绳颜色(中文) -> 数量
   let pvcTotal = 0; // PVC卡总数 = 吊绳总数

@@ -4,7 +4,7 @@
     <div class="space-y-6">
       <h1 class="text-2xl font-bold">徽章自动排版工具 (多图案版)</h1>
 
-      <!-- Step 1: 说明 -->
+      <!-- 排版说明 -->
       <div class="p-4 border rounded-lg bg-white shadow-sm">
         <h2 class="text-lg font-semibold mb-2">多图智能排版</h2>
         <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
@@ -14,6 +14,26 @@
             <li>不满张时自动使用 <strong>外圆切线模式</strong>（虚线外圆，方便手动裁剪）</li>
             <li>仅支持相同尺寸的徽章混合排版</li>
           </ul>
+        </div>
+      </div>
+
+      <!-- Step 1: Bleed Settings -->
+      <div class="p-4 border rounded-lg bg-white shadow-sm">
+        <h2 class="text-lg font-semibold mb-4">1. 排版设置</h2>
+        <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <div>
+            <label for="bleed-toggle" class="block text-sm font-medium text-gray-700">出血</label>
+            <p class="mt-0.5 text-xs text-gray-500">
+              对所有图案生效：图案等比放大铺满包边（正面图案仍是成品线以内）；预览显示成品线（灰），参考线不打印
+            </p>
+          </div>
+          <input
+            id="bleed-toggle"
+            type="checkbox"
+            v-model="bleedEnabled"
+            @change="handleBleedToggle"
+            class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
         </div>
       </div>
 
@@ -141,22 +161,6 @@
             <button @click="generateLayout" :disabled="!allDesignsReady" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400 text-sm">生成排版</button>
             <button @click="printLayout" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">打印</button>
         </div>
-      </div>
-
-      <div class="mb-3 flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-        <div>
-          <label for="bleed-toggle" class="block text-sm font-medium text-gray-700">出血</label>
-          <p class="mt-0.5 text-xs text-gray-500">
-            图案等比放大铺满包边（正面图案仍是成品线以内）；预览显示成品线（灰），参考线不打印
-          </p>
-        </div>
-        <input
-          id="bleed-toggle"
-          type="checkbox"
-          v-model="bleedEnabled"
-          @change="handleBleedToggle"
-          class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-        />
       </div>
 
       <!-- 分页提示 -->

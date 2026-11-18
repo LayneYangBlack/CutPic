@@ -474,6 +474,8 @@ canvas:active {
   width: min(360px, calc(100% - 16px));
   margin: 8px auto 0;
   background: rgba(255, 255, 255, 0.92);
+  color: #1f2937;
+  color-scheme: light;
   padding: 6px 10px;
   border-radius: 10px;
   display: flex;
@@ -490,6 +492,10 @@ label {
     accent-color: #2563eb;
 }
 .zoom-btn {
+    padding: 0;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    color: #1f2937;
     width: 40px;
     height: 40px;
     min-width: 40px;
